@@ -46,6 +46,28 @@ echo "::group:: Install Packages"
 # Install packages using dnf5
 # Example: dnf5 install -y tmux
 
+# DX tooling (containers, virtualization, build essentials)
+dnf5 install -y \
+	git \
+	gcc \
+	gcc-c++ \
+	make \
+	cmake \
+	python3-devel \
+	openssl-devel \
+	podman \
+	podman-docker \
+	podman-compose \
+	toolbox \
+	distrobox \
+	libvirt \
+	virt-manager \
+	qemu-kvm \
+	cockpit \
+	cockpit-machines \
+	flatpak-builder \
+	jq
+
 # Example using COPR with isolated pattern:
 # copr_install_isolated "ublue-os/staging" package-name
 
@@ -55,7 +77,27 @@ echo "::group:: System Configuration"
 
 # Enable/disable systemd services
 systemctl enable podman.socket
+# Enable optional services if available
+if systemctl list-unit-files > /dev/null 2>&1; then
+	if systemctl list-unit-files | grep -q '^cockpit.socket'; then
+		systemctl enable cockpit.socket
+	fi
+	if systemctl list-unit-files | grep -q '^libvirtd.service'; then
+		systemctl enable libvirtd
+	fi
+fi
 # Example: systemctl mask unwanted-service
+
+echo "::endgroup::"
+
+echo "::group:: Run Additional Build Scripts"
+
+for script in /ctx/build/[2-9][0-9]*-*.sh; do
+	if [[ -f "${script}" ]]; then
+		echo "Running ${script}"
+		/usr/bin/bash "${script}"
+	fi
+done
 
 echo "::endgroup::"
 

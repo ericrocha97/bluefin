@@ -15,6 +15,7 @@ Scripts are named with a number prefix (e.g., `10-build.sh`, `20-onepassword.sh`
 - **`20-onepassword.sh.example`** - Example showing how to install software from third-party RPM repositories (Google Chrome, 1Password)
 
 To use an example script:
+
 1. Remove the `.example` extension
 2. Make it executable: `chmod +x build/20-yourscript.sh`
 3. The build system will automatically run it in numerical order
@@ -52,6 +53,7 @@ echo "Running custom setup..."
 ### Disabling Scripts
 
 To temporarily disable a script without deleting it:
+
 - Rename it with `.disabled` extension: `20-script.sh.disabled`
 - Or remove execute permission: `chmod -x build/20-script.sh`
 
@@ -63,11 +65,7 @@ The Containerfile runs scripts like this:
 RUN /ctx/build/10-build.sh
 ```
 
-If you want to run multiple scripts, you can:
-
-1. **Modify Containerfile** to run each script explicitly
-2. **Create a runner script** that executes all numbered scripts
-3. **Use the default** and keep everything in `10-build.sh` (simplest)
+The main script (`10-build.sh`) now runs additional numbered scripts automatically (20-, 30-, etc.) in ascending order. This keeps the Containerfile simple while preserving modular build steps.
 
 ## Notes
 

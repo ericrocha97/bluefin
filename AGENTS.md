@@ -1,8 +1,9 @@
-# Copilot Instructions for finpilot bootc Image Template
+# Copilot Instructions for bluefin-cosmic-dx bootc Image Template
 
 ## CRITICAL: GitHub API Usage
 
 **ALWAYS use GitHub API for external references:**
+
 - When researching other repositories (e.g., projectbluefin/distroless, ublue-os/bluefin)
 - When checking Containerfiles, build scripts, or configuration files
 - Use the `github-mcp-server-get_file_contents` tool instead of curl/wget
@@ -11,6 +12,7 @@
 ## CRITICAL: Pre-Commit Checklist
 
 **Execute before EVERY commit:**
+
 1. **Conventional Commits** - ALL commits MUST follow conventional commit format (see below)
 2. **Shellcheck** - `shellcheck *.sh` on all modified shell files
 3. **YAML validation** - `python3 -c "import yaml; yaml.safe_load(open('file.yml'))"` on all modified YAML
@@ -31,11 +33,12 @@
 
 **When this repository is used as a template, you MUST:**
 
-### 1. Rename ALL instances of `finpilot`
+### 1. Rename ALL instances of `bluefin-cosmic-dx`
 
-**Source of truth**: `Containerfile` line 9: `# Name: finpilot`
+**Source of truth**: `Containerfile` line 9: `# Name: bluefin-cosmic-dx`
 
 **Files to update:**
+
 - `Containerfile` (line 9)
 - `Justfile` (line 1)
 - `README.md` (line 1)
@@ -70,7 +73,8 @@ Here are the changes from [Base Image Name]. This image is based on [Bluefin/Baz
 *Last updated: [date]*
 ```
 
-**Maintenance requirement**: 
+**Maintenance requirement**:
+
 - **ALWAYS update this section when you modify packages or configuration**
 - Keep descriptions brief and user-focused (explain "why", not just "what")
 - Write for typical Linux users, not developers
@@ -136,9 +140,11 @@ Signing is DISABLED by default. First builds succeed immediately. Enable later f
 ## Core Principles
 
 ### Multi-Stage Build Architecture
+
 This template follows the **Bluefin architecture pattern** from @projectbluefin/distroless:
 
 **Architecture Layers:**
+
 1. **Context Stage (ctx)** - Combines resources from multiple sources:
    - Local build scripts (`/build`)
    - Local custom files (`/custom`)
@@ -152,6 +158,7 @@ This template follows the **Bluefin architecture pattern** from @projectbluefin/
    - `quay.io/centos-bootc/centos-bootc:stream10` (CentOS-based)
 
 **OCI Container Resources:**
+
 - Resources from OCI containers are copied to **distinct subdirectories** (`/oci/*`) to avoid file conflicts
 - Renovate automatically updates `:latest` tags to **SHA digests** for reproducibility
 - All OCI resources are mounted at build-time via the `ctx` stage
@@ -159,11 +166,14 @@ This template follows the **Bluefin architecture pattern** from @projectbluefin/
 **Reference:** See [Bluefin Contributing Guide](https://docs.projectbluefin.io/contributing/) for architecture diagram
 
 ### Build-time vs Runtime
+
 - **Build-time** (`build/`): Baked into container. Use `dnf5 install`. Services, configs, system packages.
 - **Runtime** (`custom/`): User installs after deployment. Use Brewfiles, Flatpaks. CLI tools, GUI apps, dev environments.
 
 ### Bluefin Convention Compliance
+
 **ALWAYS follow @ublue-os/bluefin patterns. Confirm before deviating.**
+
 - Use `dnf5` exclusively (never `dnf`, `yum`, `rpm-ostree`)
 - Always `-y` flag for non-interactive
 - COPRs: enable → install → **DISABLE** (critical, prevents repo persistence)
@@ -172,12 +182,15 @@ This template follows the **Bluefin architecture pattern** from @projectbluefin/
 - Check @bootc-dev for container best practices
 
 ### Branch Strategy
+
 - **main** = Production releases ONLY. Never push directly. Builds `:stable` images.
 - **Conventional Commits** = REQUIRED. `feat:`, `fix:`, `chore:`, etc.
 - **Workflows** = All validation happens on PRs. Merging to main triggers stable builds.
 
 ### Validation Workflows
+
 The repository includes automated validation on pull requests:
+
 - **validate-shellcheck.yml** - Runs shellcheck on all `build/*.sh` scripts
 - **validate-brewfiles.yml** - Validates Homebrew Brewfile syntax
 - **validate-flatpaks.yml** - Checks Flatpak app IDs exist on Flathub
@@ -199,24 +212,28 @@ This section provides clear guidance on where to add different types of packages
 System packages are installed at build-time and baked into the container image. Use `dnf5` exclusively.
 
 **Example**:
+
 ```bash
 # In build/10-build.sh
 dnf5 install -y vim git htop neovim tmux
 ```
 
-**When to use**: 
+**When to use**:
+
 - System utilities and services
 - Dependencies required for other build-time operations
 - Packages that need to be available immediately on first boot
 - Services that need to be enabled with `systemctl enable`
 
-**Important**: 
+**Important**:
+
 - Always use `dnf5` (never `dnf`, `yum`, or `rpm-ostree`)
 - Always add `-y` flag for non-interactive installs
 - For COPR repositories, use `copr_install_isolated` pattern and disable after use
 - For third-party repos, see example scripts: `build/20-onepassword.sh.example`
 
 **Script Naming Convention**:
+
 - `10-build.sh` - Main build script (always runs first)
 - `20-*.sh` - Additional scripts (run in numerical order)
 - `30-*.sh` - Desktop environment changes
@@ -229,12 +246,14 @@ dnf5 install -y vim git htop neovim tmux
 Homebrew packages are installed by users after deployment. Best for CLI tools and development environments.
 
 **Files**:
+
 - `custom/brew/default.Brewfile` - General purpose CLI tools
 - `custom/brew/development.Brewfile` - Development tools and environments
 - `custom/brew/fonts.Brewfile` - Font packages
 - Create custom `*.Brewfile` as needed
 
 **Example**:
+
 ```ruby
 # In custom/brew/default.Brewfile
 brew "bat"        # cat with syntax highlighting
@@ -244,12 +263,14 @@ brew "fd"         # Simple alternative to find
 ```
 
 **When to use**:
+
 - CLI tools and utilities
 - Development tools (node, python, go, etc.)
 - User-specific tools that don't need to be in the base image
 - Tools that update frequently
 
 **Important**:
+
 - Brewfiles use Ruby syntax
 - Users install via `ujust` commands (e.g., `ujust install-default-apps`)
 - Not installed in ISO/container - users install after deployment
@@ -261,10 +282,12 @@ brew "fd"         # Simple alternative to find
 Flatpak applications are GUI apps installed after first boot. Use INI format.
 
 **Files**:
+
 - `custom/flatpaks/default.preinstall` - Default GUI applications
 - Create custom `*.preinstall` files as needed
 
 **Example**:
+
 ```ini
 # In custom/flatpaks/default.preinstall
 [Flatpak Preinstall org.mozilla.firefox]
@@ -278,15 +301,17 @@ Branch=stable
 ```
 
 **When to use**:
+
 - GUI applications
 - Desktop apps (browsers, editors, media players)
 - Apps that users expect to have immediately available
-- Apps from Flathub (https://flathub.org/)
+- Apps from Flathub (<https://flathub.org/>)
 
 **Important**:
+
 - Installed post-first-boot (not in ISO/container)
 - Requires internet connection
-- Find app IDs at https://flathub.org/
+- Find app IDs at <https://flathub.org/>
 - Use INI format with `[Flatpak Preinstall APP_ID]` sections
 - Always specify `Branch=stable` (or another branch)
 
@@ -322,6 +347,7 @@ This template uses a **multi-stage build** following the @projectbluefin/distrol
 
 **Stage 1: Context (ctx) - Line 39**
 Combines resources from multiple OCI containers:
+
 ```dockerfile
 FROM scratch AS ctx
 
@@ -336,6 +362,7 @@ COPY --from=ghcr.io/ublue-os/brew:latest /system_files /oci/brew
 ```
 
 **Stage 2: Base Image - Line 52**
+
 ```dockerfile
 FROM ghcr.io/ublue-os/silverblue-main:latest  # Default (Fedora-based)
 # OR
@@ -343,6 +370,7 @@ FROM quay.io/centos-bootc/centos-bootc:stream10  # CentOS-based
 ```
 
 **Common alternative base images**:
+
 ```dockerfile
 FROM ghcr.io/ublue-os/bluefin:stable      # Dev, GNOME, `:stable` or `:gts`
 FROM ghcr.io/ublue-os/bazzite:stable      # Gaming, Steam Deck
@@ -355,6 +383,7 @@ FROM quay.io/fedora/fedora-bootc:42       # Upstream Fedora
 **Renovate**: Base image SHA and OCI container tags are auto-updated by Renovate bot every 6 hours (see `.github/renovate.json5`)
 
 **OCI Container Resources:**
+
 - **@ublue-os/base-main** - Base system configuration
 - **@projectbluefin/common** - Desktop configuration shared with Aurora
 - **@projectbluefin/branding** - Branding assets
@@ -362,6 +391,7 @@ FROM quay.io/fedora/fedora-bootc:42       # Upstream Fedora
 - **@ublue-os/brew** - Homebrew integration
 
 **File Locations in Build Scripts:**
+
 - Local build scripts: `/ctx/build/`
 - Local custom files: `/ctx/custom/`
 - Base files: `/ctx/oci/base/`
@@ -377,6 +407,7 @@ FROM quay.io/fedora/fedora-bootc:42       # Upstream Fedora
 Following the `@projectbluefin/distroless` pattern, you can layer in additional system files from OCI containers. These are commented out by default in the template.
 
 **Available OCI Containers**:
+
 ```dockerfile
 # Artwork and Branding from projectbluefin/common
 COPY --from=ghcr.io/projectbluefin/common:latest /system_files/bluefin /files/bluefin
@@ -387,15 +418,18 @@ COPY --from=ghcr.io/ublue-os/brew:latest /system_files /files/brew
 ```
 
 **What's included**:
+
 - `projectbluefin/common:latest` - Bluefin wallpapers, themes, branding assets, ujust completions, udev rules
 - `ublue-os/brew:latest` - Homebrew system integration files
 
 **When to use**:
+
 - You want Bluefin-specific artwork and wallpapers in your custom image
 - You want additional system integration beyond what the base image provides
 - You're building a Bluefin derivative and want to maintain brand consistency
 
-**Important**: 
+**Important**:
+
 - These are **commented out by default** as template examples
 - Uncomment only if you specifically want these additional system files
 - The files are copied into the `ctx` stage and made available to your build scripts
@@ -406,6 +440,7 @@ COPY --from=ghcr.io/ublue-os/brew:latest /system_files /files/brew
 **Pattern**: Numbered files (`10-build.sh`, `20-chrome.sh`, `30-cosmic.sh`) run in order.
 
 **Example - `build/10-build.sh`**:
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
@@ -422,6 +457,7 @@ chmod +x /usr/local/bin/tool
 ```
 
 **Example - COPR pattern** (see `build/20-onepassword.sh`):
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
@@ -437,6 +473,7 @@ copr_install_isolated username/repo package-name
 ```
 
 **Example - Desktop swap** (see `build/30-cosmic.sh`):
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
@@ -458,6 +495,7 @@ systemctl set-default graphical.target
 **Files**: `*.Brewfile` (Ruby syntax)
 
 **Example - `custom/brew/default.Brewfile`**:
+
 ```ruby
 # CLI tools
 brew "bat"        # Better cat
@@ -478,6 +516,7 @@ brew "python"
 **Files**: `*.just` (all auto-consolidated)
 
 **Example - `custom/ujust/apps.just`**:
+
 ```just
 [group('Apps')]
 install-default-apps:
@@ -491,6 +530,7 @@ install-dev-tools:
 ```
 
 **RULES**:
+
 - **NEVER** use `dnf5` in ujust - only Brewfile/Flatpak shortcuts
 - Use `[group('Category')]` for organization
 - All `.just` files merged during build
@@ -500,6 +540,7 @@ install-dev-tools:
 **Files**: `*.preinstall` (INI format, installed after first boot)
 
 **Example - `custom/flatpaks/default.preinstall`**:
+
 ```ini
 [Flatpak Preinstall org.mozilla.firefox]
 Branch=stable
@@ -511,17 +552,19 @@ Branch=stable
 Branch=stable
 ```
 
-**Important**: Not in ISO/container. Installed post-first-boot. Requires internet. Find IDs at https://flathub.org/
+**Important**: Not in ISO/container. Installed post-first-boot. Requires internet. Find IDs at <https://flathub.org/>
 
 ### 7. ISO/Disk Images (`iso/`)
 
 **For local testing only. No CI/CD.**
 
 **Files**:
+
 - `iso/disk.toml` - VM images (QCOW2/RAW): `just build-qcow2`
 - `iso/iso.toml` - Installer ISO: `just build-iso`
 
 **CRITICAL** - Update bootc switch URL in `iso/iso.toml`:
+
 ```toml
 [customizations.installer.kickstart]
 contents = """
@@ -536,22 +579,26 @@ bootc switch --mutate-in-place --transport registry ghcr.io/USERNAME/REPO:stable
 ### 8. Release Workflow
 
 **Branches**:
+
 - `main` - Production only. Builds `:stable` images. Never push directly.
 
 **Workflows**:
+
 - `build.yml` - Builds `:stable` on main
 - `renovate.yml` - Monitors base image updates (every 6 hours)
 - `clean.yml` - Deletes images >90 days (weekly)
 - `validate-*.yml` - Pre-merge validation (shellcheck, Brewfile, Flatpak, etc.)
 
 **Image Tags**:
+
 - `:stable` - Latest stable release from main branch
 - `:stable.YYYYMMDD` - Datestamped stable release
 - `:YYYYMMDD` - Date only
 - `:pr-123` - Pull request builds (for testing)
 - `:sha-abc123` - Git commit SHA (short)
 
-**Renovate Bot**: 
+**Renovate Bot**:
+
 - Automatically updates base image SHAs in `Containerfile`
 - Runs every 6 hours (configured in `.github/renovate.json5`)
 - Creates PRs for updates - review and merge to keep images current
@@ -561,6 +608,7 @@ bootc switch --mutate-in-place --transport registry ghcr.io/USERNAME/REPO:stable
 This template implements a **multi-stage build pattern** following @projectbluefin/distroless.
 
 **Why Multi-Stage?**
+
 - **Modularity**: Combine resources from multiple OCI containers
 - **Reusability**: Share common components across different images
 - **Maintainability**: Update shared components independently
@@ -569,6 +617,7 @@ This template implements a **multi-stage build pattern** following @projectbluef
 **Stage Breakdown:**
 
 **Stage 1: Context (ctx)**
+
 ```dockerfile
 FROM scratch AS ctx
 COPY build /build                    # Local build scripts
@@ -580,11 +629,13 @@ COPY --from=ghcr.io/ublue-os/brew:latest /system_files /oci/brew
 ```
 
 This stage combines:
+
 - **Local resources** (build scripts, custom files)
 - **OCI container resources** from upstream projects
 - Resources are copied to **distinct subdirectories** to avoid conflicts
 
 **Stage 2: Final Image**
+
 ```dockerfile
 FROM ghcr.io/ublue-os/silverblue-main:42
 
@@ -593,6 +644,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
 ```
 
 The final stage:
+
 - Starts from base image
 - Mounts the `ctx` stage at `/ctx`
 - Runs build scripts with access to all resources
@@ -600,6 +652,7 @@ The final stage:
 **Accessing OCI Resources in Build Scripts:**
 
 Build scripts can access files from OCI containers:
+
 ```bash
 #!/usr/bin/env bash
 # Example: Copy branding files
@@ -613,6 +666,7 @@ cp /ctx/oci/brew/*.sh /usr/local/bin/
 ```
 
 **Renovate Integration:**
+
 - Renovate monitors OCI container tags (`:latest`)
 - Automatically updates to SHA digests for reproducibility
 - Example: `:latest` → `@sha256:abc123...`
@@ -623,6 +677,7 @@ cp /ctx/oci/brew/*.sh /usr/local/bin/
 ### 9. Image Signing (Optional, Recommended for Production)
 
 **Default**: DISABLED (commented out in workflows) to allow first builds.
+
 ```bash
 # Generate keys
 COSIGN_PASSWORD="" cosign generate-key-pair
@@ -664,6 +719,7 @@ COSIGN_PASSWORD="" cosign generate-key-pair
 14. **ALWAYS** check example scripts before creating new patterns (`.example` files in `build/`)
 15. **ALWAYS** validate that new Flatpak IDs exist on Flathub before adding
 16. **NEVER** modify validation workflows without understanding impact on PR checks
+
 ---
 
 ## Troubleshooting
@@ -675,7 +731,7 @@ COSIGN_PASSWORD="" cosign generate-key-pair
 | Build fails: "base image not found" | Invalid FROM line | Check syntax in `Containerfile` line 24 |
 | Build fails: "shellcheck error" | Script syntax error | Run `shellcheck build/*.sh` locally, fix errors |
 | PR validation fails: Brewfile | Invalid Brewfile syntax | Check Ruby syntax, ensure packages exist |
-| PR validation fails: Flatpak | Invalid app ID | Verify app ID exists on https://flathub.org/ |
+| PR validation fails: Flatpak | Invalid app ID | Verify app ID exists on <https://flathub.org/> |
 | PR validation fails: justfile | Invalid just syntax | Run `just --list` locally to test |
 | Changes not in production | Wrong workflow | Push to main (via PR) to trigger stable builds |
 | ISO missing customizations | Wrong bootc URL | Update `iso/iso.toml` bootc switch URL to match repo |
@@ -697,6 +753,7 @@ COSIGN_PASSWORD="" cosign generate-key-pair
 **Example**: See `build/20-onepassword.sh.example`
 
 **Steps**:
+
 1. Add GPG key (if required)
 2. Create repo file in `/etc/yum.repos.d/`
 3. Install packages with `dnf5 install -y`
@@ -727,6 +784,7 @@ rm -f /etc/yum.repos.d/google-chrome.repo
 **Example**: See `build/copr-helpers.sh` and `build/30-cosmic-desktop.sh.example`
 
 **Always use `copr_install_isolated` function**:
+
 ```bash
 source /ctx/build/copr-helpers.sh
 
@@ -747,6 +805,7 @@ copr_install_isolated "ryanabx/cosmic-epoch" \
 **Example**: See `build/30-cosmic-desktop.sh.example`
 
 **Steps**:
+
 1. Remove old desktop: `dnf5 remove -y gnome-shell ...`
 2. Install new desktop: `copr_install_isolated ...`
 3. Configure display manager: `systemctl enable ...`
@@ -772,6 +831,7 @@ systemctl set-default graphical.target
 **Location**: `custom/ujust/*.just`
 
 **Example structure**:
+
 ```just
 # vim: set ft=make :
 
@@ -793,6 +853,7 @@ my-custom-command:
 ### Pattern 6: Local Testing Workflow
 
 **Complete local testing cycle**:
+
 ```bash
 # 1. Build container image
 just build
@@ -808,6 +869,7 @@ just build && just build-qcow2 && just run-vm-qcow2
 ```
 
 **Alternative**: Build ISO for installation testing
+
 ```bash
 just build
 just build-iso
@@ -817,6 +879,7 @@ just run-vm-iso
 ### Pattern 7: Pre-commit Validation (Optional)
 
 **Setup pre-commit hooks locally**:
+
 ```bash
 # Install pre-commit
 pip install pre-commit
@@ -835,25 +898,28 @@ pre-commit run --all-files
 ## Advanced Topics
 
 ### /opt Immutability
+
 Some packages (Chrome, Docker Desktop) write to `/opt`. On Fedora, it's symlinked to `/var/opt` (mutable). To make immutable:
 
 Uncomment `Containerfile` line 20:
+
 ```dockerfile
 RUN rm /opt && mkdir /opt
 ```
 
 ### Multi-Architecture
+
 - Local `just` commands support your platform
 - Most UBlue images support amd64/arm64
 - Add `-arm64` suffix if needed: `bluefin-arm64:stable`
 - Cross-platform builds require additional setup
 
 ### Custom Build Functions
+
 See `build/copr-install-functions.sh` for reusable patterns:
+
 - `copr_install_isolated` - Enable COPR, install packages, disable COPR
 - Follow @ublue-os/bluefin conventions exactly
-
-
 
 ---
 
@@ -873,6 +939,7 @@ See `build/copr-install-functions.sh` for reusable patterns:
 ### What Gets Included in the Image
 
 **Build-time (baked into image)**:
+
 - System packages from `dnf5 install`
 - Enabled systemd services
 - Custom files copied from `/ctx/custom/` to standard locations:
@@ -881,18 +948,21 @@ See `build/copr-install-functions.sh` for reusable patterns:
   - Flatpak preinstall → `/etc/flatpak/preinstall.d/`
 
 **Runtime (installed after deployment)**:
+
 - Homebrew packages (user runs `ujust install-*`)
 - Flatpak applications (installed on first boot, requires internet)
 
 ### Local vs CI Builds
 
 **Local builds** (with `just build`):
+
 - Uses your local podman
 - Faster for testing
 - No signing
 - No automatic push to registry
 
 **CI builds** (GitHub Actions):
+
 - Uses GitHub runners
 - Automatic on push/PR
 - Includes validation steps
@@ -902,12 +972,14 @@ See `build/copr-install-functions.sh` for reusable patterns:
 ### Image Layers and Caching
 
 **Efficient layering**:
+
 - Each `RUN` command creates a new layer
 - Layers are cached between builds
 - Changes near end of Containerfile = faster rebuilds
 - Use `--mount=type=cache` for package managers
 
 **Best practices**:
+
 - Group related `dnf5 install` commands together
 - Don't install and remove in same layer
 - Clean up in same RUN command as install
@@ -917,12 +989,14 @@ See `build/copr-install-functions.sh` for reusable patterns:
 ## Image Tags Reference
 
 **Main branch** (production releases):
+
 - `stable` - Latest stable release (recommended)
 - `stable.20250129` - Datestamped stable release
 - `20250129` - Date only
 - `v1.0.0` - Version from Release Please
 
 **PR builds**:
+
 - `pr-123` - Pull request number
 - `sha-abc123` - Git commit SHA (short)
 
@@ -944,6 +1018,7 @@ When user requests customization, check in this order:
 ### Files to AVOID Modifying
 
 **Do NOT modify unless specifically requested or necessary**:
+
 - `.github/renovate.json5` - Renovate configuration (auto-updates)
 - `.github/workflows/validate-*.yml` - Validation workflows
 - `.gitignore` - Prevents committing secrets
@@ -952,6 +1027,7 @@ When user requests customization, check in this order:
 - `cosign.pub` - Public signing key (regenerate if changing keys)
 
 **Modify with extreme caution**:
+
 - `.github/workflows/build.yml` - Core build workflow
 - `.github/workflows/clean.yml` - Image cleanup
 - `Justfile` - Local build automation (users rely on these commands)
@@ -963,6 +1039,7 @@ When user requests customization, check in this order:
 ### Local Debugging
 
 **Build failures**:
+
 ```bash
 # Build with verbose output
 podman build --log-level=debug .
@@ -976,6 +1053,7 @@ podman run --rm -it ghcr.io/ublue-os/bluefin:stable bash
 ```
 
 **Brewfile issues**:
+
 ```bash
 # Validate Brewfile syntax
 brew bundle check --file custom/brew/default.Brewfile
@@ -985,6 +1063,7 @@ brew bundle list --file custom/brew/default.Brewfile
 ```
 
 **Just file issues**:
+
 ```bash
 # Check syntax
 just --list
@@ -999,18 +1078,21 @@ just --verbose install-default-apps
 ### CI Debugging
 
 **Check workflow logs**:
+
 1. Go to Actions tab in GitHub
 2. Click on failed workflow run
 3. Expand failed step
 4. Look for error messages
 
 **Common CI failures**:
+
 - Shellcheck errors: Fix script syntax
 - Brewfile validation: Check package names exist
 - Flatpak validation: Verify app IDs on Flathub
 - Image pull failures: Check base image SHA/tag
 
 **Test PR before merge**:
+
 ```bash
 # PR builds are tagged as :pr-NUMBER
 podman pull ghcr.io/YOUR_USERNAME/YOUR_REPO:pr-123
@@ -1020,6 +1102,7 @@ podman run --rm -it ghcr.io/YOUR_USERNAME/YOUR_REPO:pr-123 bash
 ### Runtime Debugging
 
 **After deployment**:
+
 ```bash
 # Check system info
 bootc status
@@ -1041,6 +1124,7 @@ ls -la /etc/flatpak/preinstall.d/
 ```
 
 **Flatpak debugging**:
+
 ```bash
 # Check Flatpak remotes
 flatpak remotes
@@ -1053,6 +1137,7 @@ flatpak install -y flathub org.mozilla.firefox
 ```
 
 **Homebrew debugging**:
+
 ```bash
 # Check Homebrew status
 brew doctor
@@ -1068,17 +1153,17 @@ brew install package-name
 
 ## Resources & Documentation
 
-- **Bluefin patterns**: https://github.com/ublue-os/bluefin
-- **bootc documentation**: https://github.com/containers/bootc
-- **Conventional Commits**: https://www.conventionalcommits.org/
-- **RPMfusion packages**: https://mirrors.rpmfusion.org/
-- **Flatpak IDs**: https://flathub.org/
-- **Homebrew**: https://brew.sh/
-- **Universal Blue**: https://universal-blue.org/
-- **Renovate**: https://docs.renovatebot.com/
-- **GitHub Actions**: https://docs.github.com/en/actions
-- **Podman**: https://podman.io/
-- **Justfile**: https://just.systems/
+- **Bluefin patterns**: <https://github.com/ublue-os/bluefin>
+- **bootc documentation**: <https://github.com/containers/bootc>
+- **Conventional Commits**: <https://www.conventionalcommits.org/>
+- **RPMfusion packages**: <https://mirrors.rpmfusion.org/>
+- **Flatpak IDs**: <https://flathub.org/>
+- **Homebrew**: <https://brew.sh/>
+- **Universal Blue**: <https://universal-blue.org/>
+- **Renovate**: <https://docs.renovatebot.com/>
+- **GitHub Actions**: <https://docs.github.com/en/actions>
+- **Podman**: <https://podman.io/>
+- **Justfile**: <https://just.systems/>
 
 ---
 
@@ -1104,5 +1189,5 @@ Assisted-by: Claude 3.5 Sonnet via GitHub Copilot
 ---
 
 **Last Updated**: 2025-11-14  
-**Template Version**: finpilot (Enhanced with comprehensive Copilot instructions)  
+**Template Version**: bluefin-cosmic-dx (Enhanced with comprehensive Copilot instructions)  
 **Maintainer**: Universal Blue Community
