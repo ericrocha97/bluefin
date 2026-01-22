@@ -18,6 +18,10 @@ Compared to Bluefin DX, this image adds:
 - VSCode Insiders (default editor) installed via RPM
 - Warp Terminal installed via RPM
 - DX tooling baked into the image (containers, virtualization, build toolchain)
+- Bluefin DX CLI tools installed by default (bat, eza, fd, ripgrep, starship, atuin, zoxide, fastfetch, etc.)
+- Bluefin fastfetch defaults and aliases
+
+Last updated: 2026-01-22
 
 Base image: ghcr.io/ublue-os/base-main:latest
 

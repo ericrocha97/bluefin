@@ -18,6 +18,10 @@ Em relação ao Bluefin DX, esta imagem adiciona:
 - VSCode Insiders (editor padrão) instalado via RPM
 - Warp Terminal instalado via RPM
 - Ferramentas DX embutidas na imagem (containers, virtualização e toolchain de build)
+- Ferramentas CLI do Bluefin DX instaladas por padrão (bat, eza, fd, ripgrep, starship, atuin, zoxide, fastfetch, etc.)
+- Fastfetch padrão do Bluefin e aliases
+
+Última atualização: 2026-01-22
 
 Imagem base: ghcr.io/ublue-os/base-main:latest
 
@@ -26,6 +30,7 @@ Imagem base: ghcr.io/ublue-os/base-main:latest
 Build local:
 
 1. Rode o build:
+
  ```bash
  sudo just build
  ```
@@ -33,6 +38,7 @@ Build local:
 Criar imagem de VM:
 
 1. Gere um QCOW2:
+
  ```bash
  sudo just build-qcow2
  ```
@@ -40,11 +46,13 @@ Criar imagem de VM:
 Trocar seu sistema para esta imagem:
 
 1. Rebase:
+
  ```bash
  sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
  ```
 
-2. Reinicie:
+1. Reinicie:
+
  ```bash
  sudo systemctl reboot
  ```
@@ -52,11 +60,13 @@ Trocar seu sistema para esta imagem:
 Voltar para o Bluefin DX:
 
 1. Rebase de volta:
+
  ```bash
  sudo bootc switch ghcr.io/ublue-os/bluefin-dx:stable
  ```
 
-2. Reinicie:
+1. Reinicie:
+
  ```bash
  sudo systemctl reboot
  ```
