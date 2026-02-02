@@ -1,5 +1,7 @@
 # bluefin-cosmic-dx
 
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/bluefin-cosmic-dx)](https://artifacthub.io/packages/search?repo=bluefin-cosmic-dx)
+
 This project was created using the finpilot template: <https://github.com/projectbluefin/finpilot>.
 
 Portuguese version: [README.pt-BR.md](README.pt-BR.md)
