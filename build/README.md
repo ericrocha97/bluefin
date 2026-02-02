@@ -8,9 +8,9 @@ Scripts are named with a number prefix (e.g., `10-build.sh`, `20-onepassword.sh`
 
 ## Included Scripts
 
-- **`10-build.sh`** - Main build script for base system modifications, package installation, and service configuration
-
-## Example Scripts
+- **`10-build.sh`** - Main build script for base system modifications and configuration (simplified for bluefin-dx base)
+- **`20-third-party-repos.sh`** - Installs VSCode Insiders and Warp Terminal from official repos
+- **`30-cosmic-desktop.sh`** - Installs COSMIC desktop from System76's COPR repository
 
 - **`20-onepassword.sh.example`** - Example showing how to install software from third-party RPM repositories (Google Chrome, 1Password)
 

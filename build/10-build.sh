@@ -7,16 +7,24 @@ set -eoux pipefail
 ###############################################################################
 # This script follows the @ublue-os/bluefin pattern for build scripts.
 # It uses set -eoux pipefail for strict error handling and debugging.
+#
+# Base image: bluefin-dx already includes all DX tools, so we only need
+# to copy configs and run additional scripts.
 ###############################################################################
 
-# Source helper functions
+# Source helper functions (includes logging utilities)
 # shellcheck source=/dev/null
 source /ctx/build/copr-helpers.sh
 
 # Enable nullglob for all glob operations to prevent failures on empty matches
 shopt -s nullglob
 
+log_section "Starting Custom Build"
+log_info "Base image: bluefin-dx:stable-daily"
+log_info "Build timestamp: $(date '+%Y-%m-%d %H:%M:%S')"
+
 echo "::group:: Copy Bluefin Config from Common"
+log_step "Copying Bluefin configuration from @projectbluefin/common..."
 
 # Copy just files from @projectbluefin/common (includes 00-entry.just which imports 60-custom.just)
 mkdir -p /usr/share/ublue-os/just/
@@ -24,163 +32,71 @@ shopt -s nullglob
 cp -r /ctx/oci/common/bluefin/usr/share/ublue-os/just/* /usr/share/ublue-os/just/
 shopt -u nullglob
 
+log_success "Bluefin just files copied to /usr/share/ublue-os/just/"
 echo "::endgroup::"
 
 echo "::group:: Copy Custom Files"
+log_step "Copying custom configuration files..."
 
 # Copy Brewfiles to standard location
+log_info "Copying Brewfiles..."
 mkdir -p /usr/share/ublue-os/homebrew/
+brewfile_count=$(find /ctx/custom/brew -name '*.Brewfile' | wc -l)
 cp /ctx/custom/brew/*.Brewfile /usr/share/ublue-os/homebrew/
+log_success "Copied $brewfile_count Brewfile(s) to /usr/share/ublue-os/homebrew/"
 
 # Consolidate Just Files
+log_info "Consolidating custom just files..."
+just_count=$(find /ctx/custom/ujust -iname '*.just' | wc -l)
 find /ctx/custom/ujust -iname '*.just' -exec printf "\n\n" \; -exec cat {} \; >> /usr/share/ublue-os/just/60-custom.just
+log_success "Consolidated $just_count custom just file(s)"
 
 # Copy Flatpak preinstall files
+log_info "Copying Flatpak preinstall files..."
 mkdir -p /etc/flatpak/preinstall.d/
+preinstall_count=$(find /ctx/custom/flatpaks -name '*.preinstall' | wc -l)
 cp /ctx/custom/flatpaks/*.preinstall /etc/flatpak/preinstall.d/
-
-echo "::endgroup::"
-
-echo "::group:: Install Packages"
-
-# Install packages using dnf5
-# Example: dnf5 install -y tmux
-
-# DX tooling (containers, virtualization, build essentials)
-dnf5 install -y \
-	git \
-	gcc \
-	gcc-c++ \
-	make \
-	cmake \
-	python3-devel \
-	openssl-devel \
-	curl \
-	zsh \
-	fish \
-	podman \
-	podman-docker \
-	podman-compose \
-	toolbox \
-	distrobox \
-	libvirt \
-	virt-manager \
-	qemu-kvm \
-	cockpit \
-	cockpit-machines \
-	flatpak-builder \
-	jq
-
-# Bluefin DX CLI tools (install what is available in Fedora)
-CLI_PACKAGES=(
-	atuin
-	bat
-	bash-preexec
-	chezmoi
-	direnv
-	dysk
-	eza
-	fastfetch
-	fd-find
-	gh
-	glab
-	htop
-	ripgrep
-	shellcheck
-	starship
-	stress-ng
-	tealdeer
-	television
-	tmux
-	trash-cli
-	ugrep
-	uutils-coreutils
-	yq
-	zoxide
-)
-
-for pkg in "${CLI_PACKAGES[@]}"; do
-	if dnf5 install -y "${pkg}"; then
-		echo "Installed ${pkg}"
-	else
-		echo "Skipping ${pkg} (not available in repos)"
-	fi
-done
-
-# Example using COPR with isolated pattern:
-# copr_install_isolated "ublue-os/staging" package-name
-
-echo "::endgroup::"
-
-echo "::group:: Fastfetch Defaults"
-
-# Copy Bluefin fastfetch defaults from @projectbluefin/common
-mkdir -p /usr/share/ublue-os /usr/bin /etc/profile.d /usr/share/fish/vendor_conf.d
-
-if [[ -f /ctx/oci/common/bluefin/usr/share/ublue-os/fastfetch.jsonc ]]; then
-	cp -f /ctx/oci/common/bluefin/usr/share/ublue-os/fastfetch.jsonc /usr/share/ublue-os/fastfetch.jsonc
-fi
-
-for fastfetch_bin in ublue-fastfetch ublue-bling-fastfetch; do
-	if [[ -f /ctx/oci/common/shared/usr/bin/${fastfetch_bin} ]]; then
-		cp -f /ctx/oci/common/shared/usr/bin/${fastfetch_bin} /usr/bin/${fastfetch_bin}
-		chmod +x /usr/bin/${fastfetch_bin}
-	fi
-done
-
-if [[ -f /ctx/oci/common/shared/etc/profile.d/ublue-fastfetch.sh ]]; then
-	cp -f /ctx/oci/common/shared/etc/profile.d/ublue-fastfetch.sh /etc/profile.d/ublue-fastfetch.sh
-fi
-
-if [[ -f /ctx/oci/common/shared/usr/share/fish/vendor_conf.d/ublue-fastfetch.fish ]]; then
-	cp -f /ctx/oci/common/shared/usr/share/fish/vendor_conf.d/ublue-fastfetch.fish /usr/share/fish/vendor_conf.d/ublue-fastfetch.fish
-fi
-
-# Populate counts used by fastfetch (fallback to 0 on failure)
-mkdir -p /usr/share/ublue-os
-if command -v curl >/dev/null 2>&1; then
-	if ! curl -fsSL https://raw.githubusercontent.com/ublue-os/countme/main/badge-endpoints/bluefin.json | jq -r ".message" > /usr/share/ublue-os/fastfetch-user-count; then
-		echo "0" > /usr/share/ublue-os/fastfetch-user-count
-	fi
-	if ! curl -fsSL "https://flathub.org/api/v2/stats/io.github.kolunmi.Bazaar?all=false&days=1" | jq -r ".installs_last_7_days" > /usr/share/ublue-os/bazaar-install-count; then
-		echo "0" > /usr/share/ublue-os/bazaar-install-count
-	fi
-else
-	echo "0" > /usr/share/ublue-os/fastfetch-user-count
-	echo "0" > /usr/share/ublue-os/bazaar-install-count
-fi
+log_success "Copied $preinstall_count Flatpak preinstall file(s)"
 
 echo "::endgroup::"
 
 echo "::group:: System Configuration"
+log_step "Configuring system services..."
 
 # Enable/disable systemd services
+log_info "Enabling podman.socket..."
 systemctl enable podman.socket
-# Enable optional services if available
-if systemctl list-unit-files > /dev/null 2>&1; then
-	if systemctl list-unit-files | grep -q '^cockpit.socket'; then
-		systemctl enable cockpit.socket
-	fi
-	if systemctl list-unit-files | grep -q '^libvirtd.service'; then
-		systemctl enable libvirtd
-	fi
-fi
-# Example: systemctl mask unwanted-service
+log_success "podman.socket enabled"
 
 echo "::endgroup::"
 
 echo "::group:: Run Additional Build Scripts"
+log_section "Running Additional Build Scripts"
 
+script_count=0
 for script in /ctx/build/[2-9][0-9]*-*.sh; do
-	if [[ -f "${script}" ]]; then
-		echo "Running ${script}"
-		/usr/bin/bash "${script}"
-	fi
+    if [[ -f "${script}" ]]; then
+        script_name=$(basename "${script}")
+        log_step "Running ${script_name}..."
+        echo ""
+        /usr/bin/bash "${script}"
+        echo ""
+        log_success "Completed ${script_name}"
+        script_count=$((script_count + 1))
+    fi
 done
+
+if [[ $script_count -eq 0 ]]; then
+    log_info "No additional build scripts found"
+else
+    log_success "Executed $script_count additional build script(s)"
+fi
 
 echo "::endgroup::"
 
 # Restore default glob behavior
 shopt -u nullglob
 
-echo "Custom build complete!"
+log_section "Build Complete"
+log_success "Custom build completed successfully!"
+log_info "Image ready for testing with: just build && just run-vm-qcow2"

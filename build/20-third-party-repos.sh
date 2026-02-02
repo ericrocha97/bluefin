@@ -11,9 +11,20 @@ set -eoux pipefail
 # - Remove repo files after installation (repos don't work at runtime)
 ###############################################################################
 
-echo "::group:: Install VSCode Insiders"
+# Source helper functions (includes logging utilities)
+# shellcheck source=/dev/null
+source /ctx/build/copr-helpers.sh
 
-# Add Microsoft VSCode RPM repository
+log_section "Installing Third-Party Software"
+
+###############################################################################
+# VSCode Insiders
+###############################################################################
+
+echo "::group:: Install VSCode Insiders"
+log_step "Installing Visual Studio Code Insiders..."
+
+log_info "Adding Microsoft VSCode repository..."
 cat > /etc/yum.repos.d/vscode.repo << 'EOF'
 [code]
 name=Visual Studio Code
@@ -23,21 +34,29 @@ gpgcheck=1
 gpgkey=https://packages.microsoft.com/keys/microsoft.asc
 EOF
 
-# Import Microsoft GPG key
+log_info "Importing Microsoft GPG key..."
 rpm --import https://packages.microsoft.com/keys/microsoft.asc
 
-# Install VSCode Insiders
+log_info "Installing code-insiders package..."
 dnf5 install -y code-insiders
 
-# Clean up repo file
+# Verify installation
+verify_package "code-insiders"
+
+log_info "Cleaning up Microsoft repository file..."
 rm -f /etc/yum.repos.d/vscode.repo
 
-echo "VSCode Insiders installed successfully"
+log_success "VSCode Insiders installation complete"
 echo "::endgroup::"
 
-echo "::group:: Install Warp Terminal"
+###############################################################################
+# Warp Terminal
+###############################################################################
 
-# Add Warp RPM repository
+echo "::group:: Install Warp Terminal"
+log_step "Installing Warp Terminal..."
+
+log_info "Adding Warp Terminal repository..."
 cat > /etc/yum.repos.d/warpdotdev.repo << 'EOF'
 [warpdotdev]
 name=warpdotdev
@@ -47,14 +66,20 @@ gpgcheck=1
 gpgkey=https://releases.warp.dev/linux/keys/warp.asc
 EOF
 
-# Import Warp GPG key
+log_info "Importing Warp GPG key..."
 rpm --import https://releases.warp.dev/linux/keys/warp.asc
 
-# Install Warp Terminal
+log_info "Installing warp-terminal package..."
 dnf5 install -y warp-terminal
 
-# Clean up repo file
+# Verify installation
+verify_package "warp-terminal"
+
+log_info "Cleaning up Warp repository file..."
 rm -f /etc/yum.repos.d/warpdotdev.repo
 
-echo "Warp Terminal installed successfully"
+log_success "Warp Terminal installation complete"
 echo "::endgroup::"
+
+log_section "Third-Party Software Installation Complete"
+log_success "All third-party applications installed successfully"

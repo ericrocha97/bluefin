@@ -4,69 +4,82 @@ Este projeto foi criado usando o template finpilot: <https://github.com/projectb
 
 Versão em inglês: [README.md](README.md)
 
-Ele constrói uma imagem bootc customizada baseada no Bluefin, usando o padrão multi-stage OCI do ecossistema Bluefin.
+Ele constrói uma imagem bootc customizada baseada no Bluefin DX, usando o padrão multi-stage OCI do ecossistema Bluefin.
+
+## O que torna este Raptor diferente?
+
+Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no Bluefin e inclui estas personalizações:
+
+### Pacotes adicionados (build-time)
+
+- **Pacotes do sistema**: stack do COSMIC (session, compositor, panel, launcher, applets) para oferecer um desktop alternativo ao GNOME.
+
+### Aplicações adicionadas (runtime)
+
+- **Ferramentas CLI (Homebrew)**: Nenhuma (ainda sem adições no Homebrew).
+- **Apps GUI (Flatpak)**: Nenhuma (ainda sem adições no Flatpak).
+
+### Removidos/Desativados
+
+- Nenhum.
+
+### Mudanças de configuração
+
+- Sessões de desktop duplas disponíveis no GDM (GNOME e COSMIC).
+
+*Última atualização: 2026-02-02*
 
 ## O que é esta imagem
 
-bluefin-cosmic-dx é uma imagem Bluefin focada em desenvolvimento, com COSMIC como desktop e um conjunto de ferramentas DX.
+bluefin-cosmic-dx é uma imagem Bluefin focada em desenvolvimento, com **suporte a GNOME + COSMIC dual desktop**. Você pode escolher qual ambiente usar na tela de login.
 
 ## O que muda nesta versão
 
-Em relação ao Bluefin DX, esta imagem adiciona:
+Baseado no **Bluefin DX**, esta imagem adiciona:
 
-- Desktop COSMIC (System76) instalado via COPR
-- VSCode Insiders (editor padrão) instalado via RPM
-- Warp Terminal instalado via RPM
-- Ferramentas DX embutidas na imagem (containers, virtualização e toolchain de build)
-- Ferramentas CLI do Bluefin DX instaladas por padrão (bat, eza, fd, ripgrep, starship, atuin, zoxide, fastfetch, etc.)
-- Fastfetch padrão do Bluefin e aliases
+- **Desktop COSMIC** (System76) como alternativa ao GNOME
+- **VSCode Insiders** instalado via RPM
+- **Warp Terminal** instalado via RPM
+- **Suporte dual desktop**: Escolha GNOME ou COSMIC no login (GDM)
+- Todos os recursos do Bluefin DX (containers, DevPods, ferramentas CLI, etc.)
 
-Última atualização: 2026-01-22
-
-Imagem base: ghcr.io/ublue-os/base-main:latest
+Imagem base: `ghcr.io/ublue-os/bluefin-dx:stable-daily`
 
 ## Uso básico
 
 Build local:
 
-1. Rode o build:
-
- ```bash
- sudo just build
- ```
+```bash
+just build
+```
 
 Criar imagem de VM:
 
-1. Gere um QCOW2:
-
- ```bash
- sudo just build-qcow2
- ```
+```bash
+just build-qcow2
+```
 
 Trocar seu sistema para esta imagem:
 
-1. Rebase:
+```bash
+sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
+sudo systemctl reboot
+```
 
- ```bash
- sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
- ```
+## Assinatura de imagem (opcional)
 
-1. Reinicie:
-
- ```bash
- sudo systemctl reboot
- ```
+A assinatura de imagem vem desativada por padrão para que os primeiros builds funcionem imediatamente. Ative depois para uso em produção (veja a seção de assinatura neste repositório).
 
 Voltar para o Bluefin DX:
 
-1. Rebase de volta:
+```bash
+sudo bootc switch ghcr.io/ublue-os/bluefin-dx:stable
+sudo systemctl reboot
+```
 
- ```bash
- sudo bootc switch ghcr.io/ublue-os/bluefin-dx:stable
- ```
+## Escolhendo o Desktop no Login
 
-1. Reinicie:
+Na tela de login (GDM), clique no **ícone de engrenagem ⚙️** para selecionar:
 
- ```bash
- sudo systemctl reboot
- ```
+- **GNOME** - Desktop padrão do Bluefin
+- **COSMIC** - Novo ambiente desktop da System76
