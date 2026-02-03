@@ -12,7 +12,11 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 
 ### Pacotes adicionados (build-time)
 
-- **Pacotes do sistema**: stack do COSMIC (session, compositor, panel, launcher, applets) para oferecer um desktop alternativo ao GNOME.
+- **Pacotes do sistema**: Ambiente desktop COSMIC completo incluindo:
+  - Stack do desktop principal: session, compositor, panel, launcher, applets, greeter
+  - Aplicações nativas: Settings, Files (gerenciador de arquivos), Edit (editor de texto), Terminal, Store (loja de apps), Player (reprodutor de mídia), Screenshot (ferramenta de captura de tela)
+  - Componentes do sistema: wallpapers, ícones, notificações, OSD, biblioteca de apps, gerenciador de workspaces
+  - Integração com desktop portal (xdg-desktop-portal-cosmic)
 
 ### Aplicações adicionadas (runtime)
 
@@ -27,7 +31,7 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 
 - Sessões de desktop duplas disponíveis no GDM (GNOME e COSMIC).
 
-*Última atualização: 2026-02-02*
+*Última atualização: 2026-02-03*
 
 ## O que é esta imagem
 
