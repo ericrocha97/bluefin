@@ -38,7 +38,7 @@ jobs:
       short_date: ${{ steps.date.outputs.short_date }}
       image_registry: ${{ env.IMAGE_REGISTRY }}
       image_name: ${{ env.IMAGE_NAME }}
-      fedora_version: ${{ steps.versions.outputs.fedora_version }}
+      bluefin_version: ${{ steps.versions.outputs.bluefin_version }}
       kernel_version: ${{ steps.versions.outputs.kernel_version }}
       vscode_version: ${{ steps.versions.outputs.vscode_version }}
       warp_version: ${{ steps.versions.outputs.warp_version }}
@@ -165,7 +165,7 @@ jobs:
             fi
           }
 
-          fedora_version=$(normalize_version "$(get_version_from_manifest "$current_manifest" fedora-release)")
+          bluefin_version=$(podman run --rm "$IMAGE" sh -c 'grep "^IMAGE_VERSION=" /etc/os-release | cut -d= -f2 | tr -d "\""' || echo "unknown")
           kernel_version=$(normalize_version "$(get_version_from_manifest "$current_manifest" kernel)")
           vscode_version=$(normalize_version "$(get_version_from_manifest "$current_manifest" code-insiders)")
           warp_version=$(normalize_version "$(get_version_from_manifest "$current_manifest" warp-terminal)")
@@ -215,7 +215,7 @@ jobs:
 
           cp "$current_manifest" manifest.txt
 
-          echo "fedora_version=$fedora_version" >> "$GITHUB_OUTPUT"
+          echo "bluefin_version=$bluefin_version" >> "$GITHUB_OUTPUT"
           echo "kernel_version=$kernel_version" >> "$GITHUB_OUTPUT"
           echo "vscode_version=$vscode_version" >> "$GITHUB_OUTPUT"
           echo "warp_version=$warp_version" >> "$GITHUB_OUTPUT"
@@ -347,21 +347,21 @@ jobs:
           tag_name: v${{ needs.build_push.outputs.short_date }}
           name: v${{ needs.build_push.outputs.short_date }}
           body: |
-            ## Container Image
+            ## Container Image ✨
 
             `${{ needs.build_push.outputs.image_registry }}/${{ needs.build_push.outputs.image_name }}:${{ needs.build_push.outputs.short_date }}`
 
-            ## Package Versions
+            ## Package Versions 📦
 
             | Component | Version |
             | --- | --- |
-            | Fedora | ${{ needs.build_push.outputs.fedora_version }} |
+            | Bluefin | ${{ needs.build_push.outputs.bluefin_version }} |
             | Kernel | ${{ needs.build_push.outputs.kernel_version }} |
             | VSCode Insiders | ${{ needs.build_push.outputs.vscode_version }} |
             | Warp Terminal | ${{ needs.build_push.outputs.warp_version }} |
             | COSMIC Session | ${{ needs.build_push.outputs.cosmic_session_version }} |
 
-            ## Changes Since Previous Release
+            ## Changes Since Previous Release 📝
 
             ${{ needs.build_push.outputs.changelog }}
 

@@ -41,7 +41,7 @@ get_rpm_version() {
 get_os_release_value() {
     local key="$1"
     local value
-    value=$(grep -E "^${key}=" /usr/lib/os-release 2>/dev/null | head -n 1 | cut -d= -f2- | tr -d '"')
+    value=$(grep -E "^${key}=" /etc/os-release 2>/dev/null | head -n 1 | cut -d= -f2- | tr -d '"')
     printf '%s' "$value"
 }
 
@@ -59,7 +59,6 @@ cat > "${manifest_path}" <<EOF
     "pretty_name": "${os_pretty_name}"
   },
   "packages": {
-    "fedora-release": "$(json_escape "$(get_rpm_version fedora-release)")",
     "kernel": "$(json_escape "$(get_rpm_version kernel)")",
     "copr-cli": "$(json_escape "$(get_rpm_version copr-cli)")",
     "code-insiders": "$(json_escape "$(get_rpm_version code-insiders)")",
