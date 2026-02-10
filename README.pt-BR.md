@@ -24,7 +24,7 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 
 ### Aplicações adicionadas (runtime)
 
-- **Ferramentas CLI (Homebrew)**: Nenhuma (ainda sem adições no Homebrew).
+- **Ferramentas CLI (Homebrew)**: Nenhuma (ainda sem Brewfiles).
 - **Apps GUI (Flatpak)**: Zen Browser.
 
 ### Removidos/Desativados
@@ -34,8 +34,9 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 ### Mudanças de configuração
 
 - Sessões de desktop duplas disponíveis no GDM (GNOME e COSMIC).
+- Comandos customizados do ujust disponíveis: install-nvm, install-sdkman, install-dev-managers.
 
-*Última atualização: 2026-02-03*
+*Última atualização: 2026-02-10*
 
 ## O que é esta imagem
 
@@ -87,13 +88,17 @@ just format             # Formata todos os scripts bash com shfmt
 just --list             # Mostra todos os comandos disponíveis
 ```
 
-**Flag para exemplos customizados:**
+**Comandos ujust customizados (na imagem):**
 
-Por padrao, os Brewfiles e exemplos de ujust nao sao aplicados no build. Para habilitar, crie este arquivo antes de construir:
+Esta imagem inclui comandos `ujust` para gerenciadores de desenvolvimento:
 
 ```bash
-touch custom/.enable-custom
+ujust install-nvm
+ujust install-sdkman
+ujust install-dev-managers
 ```
+
+Nao existem Brewfiles por padrao. Se voce adicionar Brewfiles em `custom/brew/`, eles serao copiados durante o build porque o arquivo `custom/.enable-custom` esta presente.
 
 **Fluxo completo:**
 
