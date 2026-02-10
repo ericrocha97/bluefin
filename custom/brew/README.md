@@ -20,10 +20,11 @@ Brewfiles are Homebrew's way of declaring packages in a declarative format. They
 2. Add your desired packages using Brewfile syntax
 3. Build your image - the Brewfiles will be copied to `/usr/share/ublue-os/homebrew/`
 
-**Example Files in this directory:**
-- [`default.Brewfile`](default.Brewfile) - Essential command-line tools
-- [`development.Brewfile`](development.Brewfile) - Development tools and languages
-- [`fonts.Brewfile`](fonts.Brewfile) - Programming fonts
+**No Brewfiles are included by default.** If you want to add some later, create your own files, for example:
+
+- `default.Brewfile` - Essential command-line tools
+- `development.Brewfile` - Development tools and languages
+- `fonts.Brewfile` - Programming fonts
 
 ### Installing Packages from Brewfiles
 
@@ -33,12 +34,7 @@ After booting into your custom image, install packages with:
 brew bundle --file /usr/share/ublue-os/homebrew/default.Brewfile
 ```
 
-Or use the convenient ujust commands defined in [`custom/ujust/custom-apps.just`](../ujust/custom-apps.just):
-```bash
-ujust install-default-apps
-ujust install-dev-tools
-ujust install-fonts
-```
+You can also create your own `ujust` shortcuts in `custom/ujust/` to run `brew bundle` with your files.
 
 ## File Format
 
@@ -59,13 +55,13 @@ cask "visual-studio-code"
 
 ## Customization
 
-Edit the existing Brewfiles or create new ones:
-- **[`default.Brewfile`](default.Brewfile)** - Modify for your essential tools
-- **[`development.Brewfile`](development.Brewfile)** - Add your dev stack
-- **[`fonts.Brewfile`](fonts.Brewfile)** - Add preferred fonts
-- **Create new files** - `gaming.Brewfile`, `media.Brewfile`, etc.
+Create new files like:
+- `default.Brewfile` - Essential tools
+- `development.Brewfile` - Dev stack
+- `fonts.Brewfile` - Fonts
+- `gaming.Brewfile`, `media.Brewfile`, etc.
 
-When you add new Brewfiles, create corresponding ujust commands in [`custom/ujust/custom-apps.just`](../ujust/custom-apps.just) for easy installation.
+When you add new Brewfiles, you can create corresponding `ujust` commands for easy installation.
 
 ## Resources
 
