@@ -45,8 +45,12 @@ if [[ -f "$custom_enable_flag" ]]; then
     log_info "Copying Brewfiles..."
     mkdir -p /usr/share/ublue-os/homebrew/
     brewfile_count=$(find /ctx/custom/brew -name '*.Brewfile' | wc -l)
-    cp /ctx/custom/brew/*.Brewfile /usr/share/ublue-os/homebrew/
-    log_success "Copied $brewfile_count Brewfile(s) to /usr/share/ublue-os/homebrew/"
+    if [[ $brewfile_count -gt 0 ]]; then
+        cp /ctx/custom/brew/*.Brewfile /usr/share/ublue-os/homebrew/
+        log_success "Copied $brewfile_count Brewfile(s) to /usr/share/ublue-os/homebrew/"
+    else
+        log_info "No Brewfiles found to copy"
+    fi
 
     # Consolidate Just Files
     log_info "Consolidating custom just files..."
