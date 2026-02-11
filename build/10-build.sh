@@ -36,29 +36,25 @@ echo "::endgroup::"
 echo "::group:: Copy Custom Files"
 log_step "Copying custom configuration files..."
 
-# Skip Brewfiles and ujust examples by default; enable later if needed.
-custom_enable_flag="/ctx/custom/.enable-custom"
-if [[ -f "$custom_enable_flag" ]]; then
-    log_info "Custom flag found: enabling Brewfiles and ujust examples"
+# Copy Brewfiles to standard location (if any exist)
+log_info "Copying Brewfiles..."
+mkdir -p /usr/share/ublue-os/homebrew/
+brewfile_count=$(find /ctx/custom/brew -name '*.Brewfile' | wc -l)
+if [[ $brewfile_count -gt 0 ]]; then
+    find /ctx/custom/brew -name '*.Brewfile' -exec cp {} /usr/share/ublue-os/homebrew/ \;
+    log_success "Copied $brewfile_count Brewfile(s) to /usr/share/ublue-os/homebrew/"
+else
+    log_info "No Brewfiles found to copy"
+fi
 
-    # Copy Brewfiles to standard location
-    log_info "Copying Brewfiles..."
-    mkdir -p /usr/share/ublue-os/homebrew/
-    brewfile_count=$(find /ctx/custom/brew -name '*.Brewfile' | wc -l)
-    if [[ $brewfile_count -gt 0 ]]; then
-        cp /ctx/custom/brew/*.Brewfile /usr/share/ublue-os/homebrew/
-        log_success "Copied $brewfile_count Brewfile(s) to /usr/share/ublue-os/homebrew/"
-    else
-        log_info "No Brewfiles found to copy"
-    fi
-
-    # Consolidate Just Files
-    log_info "Consolidating custom just files..."
-    just_count=$(find /ctx/custom/ujust -iname '*.just' | wc -l)
-    find /ctx/custom/ujust -iname '*.just' -exec printf "\n\n" \; -exec cat {} \; >> /usr/share/ublue-os/just/60-custom.just
+# Consolidate Just Files
+log_info "Consolidating custom just files..."
+just_count=$(find /ctx/custom/ujust -iname '*.just' | wc -l)
+if [[ $just_count -gt 0 ]]; then
+    find /ctx/custom/ujust -iname '*.just' -print0 | sort -z | xargs -0 -I {} sh -c 'printf "\n\n" >> /usr/share/ublue-os/just/60-custom.just && cat {} >> /usr/share/ublue-os/just/60-custom.just'
     log_success "Consolidated $just_count custom just file(s)"
 else
-    log_info "Skipping Brewfiles and ujust examples (create custom/.enable-custom to enable)"
+    log_info "No custom just files found to consolidate"
 fi
 
 # Copy Flatpak preinstall files

@@ -98,7 +98,7 @@ ujust install-sdkman
 ujust install-dev-managers
 ```
 
-Não existem Brewfiles por padrão. Se você adicionar Brewfiles em `custom/brew/`, eles serão copiados durante o build porque o arquivo `custom/.enable-custom` está presente.
+Não existem Brewfiles por padrão. Se você adicionar arquivos `.Brewfile` (correspondentes ao padrão `*.Brewfile`) em qualquer lugar dentro de `custom/brew/`, eles serão copiados durante o build automaticamente.
 
 **Fluxo completo:**
 
