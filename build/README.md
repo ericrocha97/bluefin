@@ -15,13 +15,9 @@ This directory contains build scripts that run during image creation. Scripts ar
 - **`99-versions.sh`** - Writes a version manifest to `/usr/share/bluefin-cosmic-dx/manifest.json`.
 - **`copr-helpers.sh`** - Helper functions for COPR management and logging.
 
-## Optional Custom Examples (Brewfiles and ujust)
+## Custom Files (Brewfiles and ujust)
 
-This repo keeps example Brewfiles and ujust files under `custom/`, but they are **not** applied by default. To enable them, create this flag file before building:
-
-```bash
-touch custom/.enable-custom
-```
+Custom Brewfiles (in `custom/brew/`) and ujust files (in `custom/ujust/`) are automatically copied during the build process if they exist.
 
 ## Creating Your Own Scripts
 
