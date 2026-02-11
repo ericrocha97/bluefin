@@ -5,11 +5,12 @@ This directory contains build scripts that run during image creation. Scripts ar
 ## How It Works
 
 - The Containerfile runs only `10-build.sh`.
-- `10-build.sh` then runs any scripts that match `/ctx/build/[2-9][0-9]*-*.sh` in ascending order.
+- `10-build.sh` then runs any scripts that match `/ctx/build/[1-9][0-9]*-*.sh` in ascending order (skipping itself).
 
 ## Included Scripts
 
-- **`10-build.sh`** - Main build script. Copies Flatpak preinstall files, installs `copr-cli`, enables `podman.socket`, and runs the other numbered scripts.
+- **`10-build.sh`** - Main build script. Copies Flatpak preinstall files, installs `copr-cli`, `earlyoom`, `ffmpegthumbnailer`, and `libvdpau-va-gl`, enables `podman.socket`, and runs the other numbered scripts.
+- **`15-system-optimizations.sh`** - Installs CachyOS/LinuxToys system optimizations (sysctl, udev, modprobe, tmpfiles, journald), configures earlyoom, rpm-ostreed auto-updates, and GNOME tweaks.
 - **`20-third-party-repos.sh`** - Installs VSCode Insiders and Warp Terminal from official RPM repos.
 - **`30-cosmic-desktop.sh`** - Installs COSMIC desktop from System76's COPR repository.
 - **`99-versions.sh`** - Writes a version manifest to `/usr/share/bluefin-cosmic-dx/manifest.json`.
@@ -62,7 +63,7 @@ The Containerfile runs:
 RUN /ctx/build/10-build.sh
 ```
 
-Then `10-build.sh` runs any `20-*.sh`, `30-*.sh`, etc. scripts in ascending order.
+Then `10-build.sh` runs any `15-*.sh`, `20-*.sh`, `30-*.sh`, etc. scripts in ascending order (skipping itself).
 
 ## Notes
 

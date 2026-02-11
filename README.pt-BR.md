@@ -21,7 +21,8 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
   - Componentes do sistema: wallpapers, ícones, notificações, OSD, biblioteca de apps, gerenciador de workspaces
   - Integração com desktop portal (xdg-desktop-portal-cosmic)
 - **Ferramentas CLI**: copr-cli (gerenciamento e monitoramento de repositórios COPR)
-- **Codecs (RPM Fusion)**: libavcodec-freeworld, gstreamer1-plugins-ugly, libvdpau-va-gl
+- **Ferramentas do Sistema**: earlyoom (prevenção de OOM), ffmpegthumbnailer (thumbnails de vídeo)
+- **Codecs**: Codecs multimídia completos via negativo17/fedora-multimedia (imagem base), libvdpau-va-gl
 
 ### Aplicações adicionadas (runtime)
 
@@ -32,12 +33,23 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 
 - Nenhum.
 
+### Otimizações do Sistema (CachyOS/LinuxToys)
+
+- **sysctl**: Tweaks CachyOS para VM/rede/kernel (swappiness, vfs_cache_pressure, dirty bytes, etc.)
+- **udev rules**: IO schedulers (BFQ/mq-deadline/none), áudio PM, SATA, HPET, CPU DMA latency
+- **modprobe**: NVIDIA PAT + power management dinâmico, opções AMD GPU, blacklist de módulos
+- **tmpfiles**: Transparent Huge Pages (defer+madvise, shrinker a 80%)
+- **journald**: Tamanho do journal limitado a 50MB
+- **earlyoom**: Threshold de 5% memória/swap, notificações D-Bus
+- **Auto-updates**: rpm-ostreed AutomaticUpdatePolicy=stage
+- **GNOME**: mutter check-alive-timeout configurado para 20s
+
 ### Mudanças de configuração
 
 - Sessões de desktop duplas disponíveis no GDM (GNOME e COSMIC).
 - Comandos customizados do ujust disponíveis: install-nvm, install-sdkman, install-dev-managers.
 
-*Última atualização: 2026-02-10*
+*Última atualização: 2026-02-11*
 
 ## O que é esta imagem
 

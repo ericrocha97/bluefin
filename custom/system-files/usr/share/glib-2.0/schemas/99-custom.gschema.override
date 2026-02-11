@@ -1,0 +1,4 @@
+[org.gnome.mutter]
+# Increase the check-alive-timeout to prevent false "app not responding" dialogs
+# Default is 5000ms, which can trigger on heavy workloads
+check-alive-timeout=20000

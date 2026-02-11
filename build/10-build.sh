@@ -75,6 +75,18 @@ dnf5 install -y copr-cli
 verify_package "copr-cli"
 log_success "COPR CLI tools installed"
 
+# earlyoom - Early OOM daemon to prevent system lockups under memory pressure
+log_info "Installing earlyoom..."
+dnf5 install -y earlyoom
+verify_package "earlyoom"
+log_success "earlyoom installed"
+
+# ffmpegthumbnailer - Video thumbnail generation for file managers
+log_info "Installing ffmpegthumbnailer..."
+dnf5 install -y ffmpegthumbnailer
+verify_package "ffmpegthumbnailer"
+log_success "ffmpegthumbnailer installed"
+
 log_info "Multimedia codecs already provided by base image (negativo17/fedora-multimedia)"
 
 # libvdpau-va-gl is available from Fedora's standard repos (not RPM Fusion)
@@ -99,9 +111,11 @@ echo "::group:: Run Additional Build Scripts"
 log_section "Running Additional Build Scripts"
 
 script_count=0
-for script in /ctx/build/[2-9][0-9]*-*.sh; do
+for script in /ctx/build/[1-9][0-9]*-*.sh; do
     if [[ -f "${script}" ]]; then
         script_name=$(basename "${script}")
+        # Skip self to prevent recursion
+        [[ "${script_name}" == "10-build.sh" ]] && continue
         log_step "Running ${script_name}..."
         echo ""
         /usr/bin/bash "${script}"

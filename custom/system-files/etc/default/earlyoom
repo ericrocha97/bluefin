@@ -1,0 +1,14 @@
+# Configuration for earlyoom - Early OOM Daemon
+#
+# earlyoom checks the amount of available memory and free swap up to 10 times
+# per second and kills the largest process if both are below the configured values.
+#
+# -m: minimum available memory percent (default: 10%)
+# -s: minimum free swap percent (default: 10%)
+# -r: memory report interval in seconds (0 to disable)
+# -n: enable notifications via d-bus (systembus)
+# --prefer: prefer killing processes matching this regex
+# --avoid: avoid killing processes matching this regex
+#
+# Send SIGTERM first, then SIGKILL after 10 seconds if process doesn't exit
+EARLYOOM_ARGS="-m 5 -s 5 -r 60 -n --avoid '(^|/)(init|Xorg|Xwayland|gnome-shell|cosmic-comp|sshd)$'"
