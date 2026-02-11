@@ -91,10 +91,14 @@ CODEC_PACKAGES=(
     gstreamer1-plugins-ugly
     libvdpau-va-gl
 )
-dnf5 install -y "${CODEC_PACKAGES[@]}"
+dnf5 install -y --allowerasing --setopt=best=False "${CODEC_PACKAGES[@]}"
 for pkg in "${CODEC_PACKAGES[@]}"; do
     verify_package "$pkg"
 done
+if ! rpm -q libavcodec-freeworld.x86_64 >/dev/null; then
+    log_error "libavcodec-freeworld.x86_64 not installed; check RPM Fusion sync"
+    exit 1
+fi
 log_success "RPM Fusion codec packages installed"
 if [[ "${rpmfusion_installed}" == "true" ]]; then
     log_info "Cleaning up RPM Fusion repository configuration..."
