@@ -15,17 +15,28 @@ install-nvm:
         echo "NVM already installed at $HOME/.nvm"
     else
         mkdir -p "$HOME/.nvm"
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+        # Fetch latest release tag from GitHub before downloading installer.
+        nvm_tag=$(curl -fsSL --max-time 15 https://api.github.com/repos/nvm-sh/nvm/releases/latest | grep -o '"tag_name":\s*"[^"]*"' | sed 's/.*"\([^"]*\)"/\1/')
+        if [ -z "$nvm_tag" ]; then
+            nvm_tag="v0.40.4"
+            echo "Failed to resolve latest NVM release tag. Falling back to ${nvm_tag}."
+        fi
+        curl -o- "https://raw.githubusercontent.com/nvm-sh/nvm/${nvm_tag}/install.sh" | bash
         echo "NVM installation complete."
     fi
 
     echo ""
-    echo "Add to ~/.zshrc:"
+    echo "Add to your shell config:"
+    echo "  - Bash: ~/.bashrc"
+    echo "  - Zsh: ~/.zshrc"
+    echo "  - Fish: ~/.config/fish/config.fish (use a compatible nvm wrapper)"
+    echo ""
+    echo "For bash/zsh, add:"
     echo "  export NVM_DIR=\"$HOME/.nvm\""
     echo "  [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\""
     echo "  [ -s \"$NVM_DIR/bash_completion\" ] && . \"$NVM_DIR/bash_completion\""
     echo ""
-    echo "Reload: source ~/.zshrc"
+    echo "Reload: source ~/.bashrc or source ~/.zshrc"
 
 # Install SDKMAN (SDK Manager)
 [group('Dev Managers')]
@@ -42,10 +53,15 @@ install-sdkman:
     fi
 
     echo ""
-    echo "Add to ~/.zshrc:"
+    echo "Add to your shell config:"
+    echo "  - Bash: ~/.bashrc"
+    echo "  - Zsh: ~/.zshrc"
+    echo "  - Fish: ~/.config/fish/config.fish (SDKMAN does not support fish natively)"
+    echo ""
+    echo "For bash/zsh, add:"
     echo "  source \"$HOME/.sdkman/bin/sdkman-init.sh\""
     echo ""
-    echo "Reload: source ~/.zshrc"
+    echo "Reload: source ~/.bashrc or source ~/.zshrc"
 
 # Alias: install both NVM and SDKMAN
 [group('Dev Managers')]
