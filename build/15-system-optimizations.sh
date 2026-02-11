@@ -10,7 +10,7 @@ set -eoux pipefail
 #
 # Installs:
 #   - CachyOS sysctl tweaks (VM, network, kernel)
-#   - udev rules (IO schedulers, audio PM, SATA, GPU reset, HPET)
+#   - udev rules (IO schedulers, audio PM, SATA, HPET)
 #   - modprobe configs (NVIDIA, AMD, blacklist)
 #   - tmpfiles configs (Transparent Huge Pages)
 #   - journald size limits
