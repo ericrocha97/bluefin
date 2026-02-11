@@ -21,6 +21,7 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
   - Componentes do sistema: wallpapers, ícones, notificações, OSD, biblioteca de apps, gerenciador de workspaces
   - Integração com desktop portal (xdg-desktop-portal-cosmic)
 - **Ferramentas CLI**: copr-cli (gerenciamento e monitoramento de repositórios COPR)
+- **Codecs (RPM Fusion)**: libavcodec-freeworld, gstreamer1-plugins-ugly, libvdpau-va-gl
 
 ### Aplicações adicionadas (runtime)
 

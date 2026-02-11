@@ -21,6 +21,7 @@ Here are the changes from Bluefin DX. This image is based on Bluefin and include
   - System components: wallpapers, icons, notifications, OSD, app library, workspaces manager
   - Desktop portal integration (xdg-desktop-portal-cosmic)
 - **CLI Tools**: copr-cli (COPR repository management and monitoring)
+- **Codecs (RPM Fusion)**: libavcodec-freeworld, gstreamer1-plugins-ugly, libvdpau-va-gl
 
 ### Added Applications (Runtime)
 

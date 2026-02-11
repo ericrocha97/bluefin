@@ -75,6 +75,26 @@ dnf5 install -y copr-cli
 verify_package "copr-cli"
 log_success "COPR CLI tools installed"
 
+log_info "Ensuring RPM Fusion repositories are available..."
+if [[ ! -f /etc/yum.repos.d/rpmfusion-free.repo ]]; then
+    log_info "Installing RPM Fusion release packages..."
+    dnf5 install -y \
+        "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" \
+        "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+fi
+
+log_info "Installing RPM Fusion codec packages..."
+CODEC_PACKAGES=(
+    libavcodec-freeworld
+    gstreamer1-plugins-ugly
+    libvdpau-va-gl
+)
+dnf5 install -y "${CODEC_PACKAGES[@]}"
+for pkg in "${CODEC_PACKAGES[@]}"; do
+    verify_package "$pkg"
+done
+log_success "RPM Fusion codec packages installed"
+
 echo "::endgroup::"
 
 echo "::group:: System Configuration"
