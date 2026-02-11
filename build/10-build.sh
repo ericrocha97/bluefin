@@ -75,6 +75,14 @@ dnf5 install -y copr-cli
 verify_package "copr-cli"
 log_success "COPR CLI tools installed"
 
+log_info "Multimedia codecs already provided by base image (negativo17/fedora-multimedia)"
+
+# libvdpau-va-gl is available from Fedora's standard repos (not RPM Fusion)
+log_info "Installing additional multimedia packages from Fedora repos..."
+dnf5 install -y libvdpau-va-gl
+verify_package "libvdpau-va-gl"
+log_success "Additional multimedia packages installed"
+
 echo "::endgroup::"
 
 echo "::group:: System Configuration"
