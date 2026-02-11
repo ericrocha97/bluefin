@@ -87,19 +87,22 @@ fi
 
 log_info "Installing RPM Fusion codec packages..."
 CODEC_PACKAGES=(
-    libavcodec-freeworld.x86_64
-    vvenc-libs.x86_64
     gstreamer1-plugins-ugly
     libvdpau-va-gl
 )
+if rpm -q libavcodec &>/dev/null; then
+    log_info "Switching libavcodec to RPM Fusion freeworld..."
+    dnf5 swap -y --allowerasing --allow-downgrade --setopt=best=False --setopt=allow_vendor_change=1 \
+        libavcodec libavcodec-freeworld
+else
+    dnf5 install -y --allowerasing --allow-downgrade --setopt=best=False --setopt=allow_vendor_change=1 \
+        libavcodec-freeworld.x86_64
+fi
 dnf5 install -y --allowerasing --allow-downgrade --setopt=best=False --setopt=allow_vendor_change=1 "${CODEC_PACKAGES[@]}"
+verify_package "libavcodec-freeworld.x86_64"
 for pkg in "${CODEC_PACKAGES[@]}"; do
     verify_package "$pkg"
 done
-if ! rpm -q libavcodec-freeworld.x86_64 >/dev/null; then
-    log_error "libavcodec-freeworld.x86_64 not installed; check RPM Fusion sync"
-    exit 1
-fi
 log_success "RPM Fusion codec packages installed"
 if [[ "${rpmfusion_installed}" == "true" ]]; then
     log_info "Cleaning up RPM Fusion repository configuration..."
