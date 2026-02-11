@@ -76,11 +76,13 @@ verify_package "copr-cli"
 log_success "COPR CLI tools installed"
 
 log_info "Ensuring RPM Fusion repositories are available..."
+rpmfusion_installed=false
 if [[ ! -f /etc/yum.repos.d/rpmfusion-free.repo ]]; then
     log_info "Installing RPM Fusion release packages..."
     dnf5 install -y \
         "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" \
         "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+    rpmfusion_installed=true
 fi
 
 log_info "Installing RPM Fusion codec packages..."
@@ -94,6 +96,11 @@ for pkg in "${CODEC_PACKAGES[@]}"; do
     verify_package "$pkg"
 done
 log_success "RPM Fusion codec packages installed"
+if [[ "${rpmfusion_installed}" == "true" ]]; then
+    log_info "Cleaning up RPM Fusion repository configuration..."
+    rm -f /etc/yum.repos.d/rpmfusion-*.repo
+    dnf5 remove -y rpmfusion-free-release rpmfusion-nonfree-release
+fi
 
 echo "::endgroup::"
 
