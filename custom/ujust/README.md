@@ -8,7 +8,7 @@ This directory contains Just recipe files that will be installed into your custo
 
 ## How It Works
 
-1. **During Build**: All `.just` files in this directory are consolidated and copied to `/usr/share/ublue-os/just/60-custom.just` in the image
+1. **During Build**: When the `custom/.enable-custom` flag file exists, all `.just` files in this directory are consolidated and copied to `/usr/share/ublue-os/just/60-custom.just` in the image
 2. **After Installation**: Users run `ujust` to see available commands
 3. **User Experience**: Simple command interface for system tasks
 

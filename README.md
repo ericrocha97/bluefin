@@ -98,7 +98,7 @@ ujust install-sdkman
 ujust install-dev-managers
 ```
 
-There are no Brewfiles included by default. If you add Brewfiles in `custom/brew/`, they will be copied during build because `custom/.enable-custom` is present.
+There are no Brewfiles included by default. If you add Brewfiles in `custom/brew/`, they will be copied during build when the `custom/.enable-custom` flag file is present in your clone.
 
 **Complete workflow:**
 

@@ -8,7 +8,7 @@ Brewfiles are Homebrew's way of declaring packages in a declarative format. They
 
 ## How It Works
 
-1. **During Build**: Files in this directory are copied to `/usr/share/ublue-os/homebrew/` in the image
+1. **During Build**: When the `custom/.enable-custom` flag file exists, files in this directory are copied to `/usr/share/ublue-os/homebrew/` in the image
 2. **After Installation**: Users install packages by running `brew bundle` commands
 3. **User Experience**: Declarative package management via Homebrew
 
@@ -16,9 +16,10 @@ Brewfiles are Homebrew's way of declaring packages in a declarative format. They
 
 ### Adding Brewfiles to Your Image
 
-1. Create `.Brewfile` files in this directory
-2. Add your desired packages using Brewfile syntax
-3. Build your image - the Brewfiles will be copied to `/usr/share/ublue-os/homebrew/`
+1. Ensure the `custom/.enable-custom` flag file exists in your repository
+2. Create `.Brewfile` files in this directory
+3. Add your desired packages using Brewfile syntax
+4. Build your image - the Brewfiles will be copied to `/usr/share/ublue-os/homebrew/`
 
 **No Brewfiles are included by default.** If you want to add some later, create your own files, for example:
 
