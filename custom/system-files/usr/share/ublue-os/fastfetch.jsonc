@@ -1,0 +1,125 @@
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "display": {
+    "separator": "  ",
+    "color": {
+      "keys": "38;2;87;160;198"
+    }
+  },
+  "modules": [
+    {
+      "type": "title",
+      "key": "",
+      "color": {
+        "user": "38;2;87;160;198",
+        "at": "white",
+        "host": "bright_green"
+      }
+    },
+    "break",
+    {
+      "type": "command",
+      "key": "󱋩",
+      "text": "/usr/bin/bluefin-cosmic-dx-info.sh"
+    },
+    {
+      "type": "os",
+      "key": "󱍢",
+      "format": "{pretty-name}"
+    },
+    {
+      "type": "kernel",
+      "key": "",
+      "format": "{1} {2}"
+    },
+    {
+      "type": "uptime",
+      "key": "󰅐"
+    },
+    {
+      "type": "command",
+      "key": "󰔠",
+      "text": "date -d$(ls -alct /var/log --time-style=full-iso|tail -1|awk '{print $6}') +'Forged on %b %d %G'",
+      "shell": "/bin/bash"
+    },
+    "break",
+    {
+      "type": "command",
+      "key": "󰇧",
+      "keyColor": "#a855f7",
+      "text": "/usr/bin/bluefin-cosmic-dx-info.sh --cosmic-version",
+      "format": "COSMIC {1}"
+    },
+    {
+      "type": "command",
+      "key": "󰃭",
+      "keyColor": "#22c55e",
+      "text": "cat /usr/share/bluefin-cosmic-dx/manifest.json | jq -r '.build_date_utc' | xargs -I{} date -d {} +'%b %d %G %H:%M UTC'",
+      "shell": "/bin/bash",
+      "format": "Built {1}"
+    },
+    "break",
+    {
+      "type": "host",
+      "key": "󰾰"
+    },
+    {
+      "type": "cpu",
+      "key": "󰻠"
+    },
+    {
+      "type": "gpu",
+      "key": "󰍛"
+    },
+    {
+      "type": "memory",
+      "key": "󰧑"
+    },
+    {
+      "type": "disk",
+      "key": "",
+      "hideFS": "overlay"
+    },
+    {
+      "type": "display",
+      "key": "󰍹"
+    },
+    {
+      "type": "battery",
+      "key": ""
+    },
+    {
+      "type": "gamepad",
+      "key": "󰖺"
+    },
+    "break",
+    {
+      "type": "de",
+      "key": "󰕮"
+    },
+    {
+      "type": "wm",
+      "key": ""
+    },
+    {
+      "type": "shell",
+      "key": ""
+    },
+    {
+      "type": "terminal",
+      "key": ""
+    },
+    {
+      "type": "packages",
+      "key": "󰏖",
+      "disabled": [
+        "rpm"
+      ]
+    },
+    "break",
+    {
+      "type": "colors",
+      "paddingLeft": 2
+    }
+  ]
+}
