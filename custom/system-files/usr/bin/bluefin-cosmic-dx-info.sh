@@ -8,6 +8,7 @@
 # Usage:
 #   bluefin-cosmic-dx-info.sh                # Output image name + version
 #   bluefin-cosmic-dx-info.sh --release      # Output GitHub release tag
+#   bluefin-cosmic-dx-info.sh --build-date   # Output formatted build date
 #   bluefin-cosmic-dx-info.sh --shell        # Output user's actual shell + version
 ###############################################################################
 
@@ -19,6 +20,18 @@ case "${1:-}" in
         if [[ -f "$MANIFEST" ]] && command -v jq &>/dev/null; then
             tag=$(jq -r '.release_tag // "unknown"' "$MANIFEST" 2>/dev/null)
             echo "${tag}"
+        else
+            echo "unknown"
+        fi
+        ;;
+    --build-date)
+        if [[ -f "$MANIFEST" ]] && command -v jq &>/dev/null; then
+            build_date=$(jq -r '.build_date_utc // empty' "$MANIFEST" 2>/dev/null)
+            if [[ -n "$build_date" ]]; then
+                date -d "$build_date" +'Built %b %d %G %H:%M UTC' 2>/dev/null || echo "unknown"
+            else
+                echo "unknown"
+            fi
         else
             echo "unknown"
         fi

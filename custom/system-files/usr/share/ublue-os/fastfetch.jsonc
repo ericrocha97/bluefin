@@ -51,9 +51,7 @@
     {
       "type": "command",
       "key": "󰃭",
-      "text": "cat /usr/share/bluefin-cosmic-dx/manifest.json | jq -r '.build_date_utc' | xargs -I{} date -d {} +'%b %d %G %H:%M UTC'",
-      "shell": "/bin/bash",
-      "format": "Built {1}"
+      "text": "/usr/bin/bluefin-cosmic-dx-info.sh --build-date"
     },
     "break",
     {
