@@ -46,12 +46,14 @@ get_os_release_value() {
 }
 
 build_date_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+release_tag="${RELEASE_TAG:-v$(date -u +%Y%m%d)-local}"
 os_name=$(json_escape "$(get_os_release_value NAME)")
 os_version=$(json_escape "$(get_os_release_value VERSION)")
 os_pretty_name=$(json_escape "$(get_os_release_value PRETTY_NAME)")
 
 cat > "${manifest_path}" <<EOF
 {
+  "release_tag": "${release_tag}",
   "build_date_utc": "${build_date_utc}",
   "os_release": {
     "name": "${os_name}",

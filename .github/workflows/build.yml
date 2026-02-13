@@ -127,6 +127,8 @@ jobs:
           image: ${{ env.IMAGE_NAME }}
           tags: ${{ env.DEFAULT_TAG }}
           labels: ${{ steps.metadata.outputs.labels }}
+          build-args: |
+            RELEASE_TAG=v${{ steps.date.outputs.short_date }}
           oci: false
 
       # Tag for registry

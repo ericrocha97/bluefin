@@ -57,6 +57,15 @@ Instead of installing the RPM as a layered package at runtime, we bake these con
 | `etc/rpm-ostreed.conf.d/10-auto-updates.conf` | Enables automatic update staging (applied on reboot) |
 | `usr/share/glib-2.0/schemas/99-custom.gschema.override` | GNOME mutter check-alive-timeout = 20s |
 
+### Fastfetch — Custom Terminal Info
+
+| File | Description |
+|------|-------------|
+| `usr/share/ublue-os/fastfetch.jsonc` | Custom fastfetch config that overrides upstream Bluefin. Replaces `ublue-image-info.sh` with our info script, adds GitHub release tag and build date modules, fixes shell detection, removes Bluefin/Bazaar community counters |
+| `usr/bin/bluefin-cosmic-dx-info.sh` | Info script that reads `/usr/share/bluefin-cosmic-dx/manifest.json`. Flags: `--release` (GitHub release tag), `--build-date` (formatted build date with error handling), `--shell` (detects actual user shell via process tree, not just login shell) |
+
+> **Note:** The random dinosaur logos are **not affected** by these changes. Logos are controlled by the `ublue-fastfetch` wrapper script (reads `/etc/ublue-os/fastfetch.json`), which is separate from `fastfetch.jsonc` (text modules only).
+
 ## References
 
 - [LinuxToys](https://github.com/psygreg/linuxtoys) — Source of the ported configs

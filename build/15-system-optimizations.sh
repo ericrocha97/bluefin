@@ -125,6 +125,24 @@ log_success "GNOME check-alive-timeout set to 20000ms"
 echo "::endgroup::"
 
 ###############################################################################
+# Install Custom Fastfetch Configuration
+###############################################################################
+
+echo "::group:: Install Custom Fastfetch"
+log_step "Installing custom fastfetch configuration..."
+
+# Override upstream fastfetch.jsonc with our custom version
+cp -v "${SYSTEM_FILES_DIR}"/usr/share/ublue-os/fastfetch.jsonc /usr/share/ublue-os/fastfetch.jsonc
+log_success "Custom fastfetch.jsonc installed (overrides upstream)"
+
+# Install custom image info script
+cp -v "${SYSTEM_FILES_DIR}"/usr/bin/bluefin-cosmic-dx-info.sh /usr/bin/bluefin-cosmic-dx-info.sh
+chmod +x /usr/bin/bluefin-cosmic-dx-info.sh
+log_success "bluefin-cosmic-dx-info.sh installed and made executable"
+
+echo "::endgroup::"
+
+###############################################################################
 # Summary
 ###############################################################################
 
@@ -139,3 +157,4 @@ log_info "  ✓ Journal size limited to 50MB"
 log_info "  ✓ Automatic updates (stage policy)"
 log_info "  ✓ earlyoom enabled (5% memory/swap threshold)"
 log_info "  ✓ GNOME mutter check-alive-timeout = 20s"
+log_info "  ✓ Custom fastfetch config (image info, COSMIC version, build date)"

@@ -23,13 +23,13 @@
 #
 # 1. Context Stage (ctx) - Combines resources from:
 #    - Local build scripts and custom files
-#    - @projectbluefin/common - Desktop configuration shared with Aurora 
+#    - @projectbluefin/common - Desktop configuration shared with Aurora
 #    - @ublue-os/brew - Homebrew integration
 #
 # 2. Base Image Options:
 #    - `ghcr.io/ublue-os/silverblue-main:latest` (Fedora and GNOME)
-#    - `ghcr.io/ublue-os/base-main:latest` (Fedora and no desktop 
-#    - `quay.io/centos-bootc/centos-bootc:stream10 (CentOS-based)` 
+#    - `ghcr.io/ublue-os/base-main:latest` (Fedora and no desktop
+#    - `quay.io/centos-bootc/centos-bootc:stream10 (CentOS-based)`
 #
 # See: https://docs.projectbluefin.io/contributing/ for architecture diagram
 ###############################################################################
@@ -76,10 +76,14 @@ RUN rm /opt && mkdir /opt
 ##   - Files from @ublue-os/brew at /oci/brew
 ## Scripts are run in numerical order (10-build.sh, 20-example.sh, etc.)
 
+# Release tag passed from CI (e.g. v20260212), empty for local builds
+ARG RELEASE_TAG=""
+
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
+    RELEASE_TAG="${RELEASE_TAG}" \
     /ctx/build/10-build.sh
 
 ### LINTING

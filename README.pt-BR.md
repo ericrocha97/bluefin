@@ -43,13 +43,14 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 - **earlyoom**: Threshold de 5% memória/swap, notificações D-Bus
 - **Auto-updates**: rpm-ostreed AutomaticUpdatePolicy=stage
 - **GNOME**: mutter check-alive-timeout configurado para 20s
+- **Fastfetch**: Config customizado exibindo nome/versão da imagem, versão do COSMIC e data do build (sobrescreve config padrão do Bluefin)
 
 ### Mudanças de configuração
 
 - Sessões de desktop duplas disponíveis no GDM (GNOME e COSMIC).
 - Comandos customizados do ujust disponíveis: install-nvm, install-sdkman, install-dev-managers.
 
-*Última atualização: 2026-02-11*
+*Última atualização: 2026-02-12*
 
 ## O que é esta imagem
 
