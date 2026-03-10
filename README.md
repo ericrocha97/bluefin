@@ -137,7 +137,7 @@ sudo systemctl reboot
 
 ## Image signing (optional)
 
-Image signing is disabled by default so first builds succeed immediately. Enable later for production use (see README section on signing in this repo).
+Image signing is optional. This repo has signing enabled in CI (with `SIGNING_SECRET` configured), plus SBOM generation/attestation and image rechunking (`max-layers 96`). To disable, comment the related steps in `.github/workflows/build.yml`.
 
 Roll back to Bluefin DX:
 
