@@ -148,10 +148,10 @@ jobs:
       - name: Load rechunked image
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
-          IMAGE=$(podman pull ${{ steps.rechunk.outputs.ref }})
-          if [ -n "${{ steps.rechunk.outputs.location }}" ]; then
           podman pull --quiet ${{ steps.rechunk.outputs.ref }}
-          sudo rm -rf ${{ steps.rechunk.outputs.location }}
+          if [ -n "${{ steps.rechunk.outputs.location }}" ]; then
+            sudo rm -rf -- "${{ steps.rechunk.outputs.location }}"
+          fi
           podman tag ${{ steps.rechunk.outputs.ref }} ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
 
       # Tag for registry
