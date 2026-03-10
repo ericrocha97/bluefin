@@ -150,9 +150,9 @@ jobs:
         run: |
           IMAGE=$(podman pull ${{ steps.rechunk.outputs.ref }})
           if [ -n "${{ steps.rechunk.outputs.location }}" ]; then
-            sudo rm -rf -- "${{ steps.rechunk.outputs.location }}"
-          fi
-          podman tag $IMAGE ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
+          podman pull --quiet ${{ steps.rechunk.outputs.ref }}
+          sudo rm -rf ${{ steps.rechunk.outputs.location }}
+          podman tag ${{ steps.rechunk.outputs.ref }} ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
 
       # Tag for registry
       - name: Tag for registry
