@@ -131,6 +131,23 @@ jobs:
             RELEASE_TAG=v${{ steps.date.outputs.short_date }}
           oci: false
 
+      # Start a local insecure registry so the rechunk action (which uses sudo podman)
+      # can pull the image built by buildah-build (stored in user podman storage).
+      # Note: GitHub Actions runners are ephemeral, so the insecure registry config
+      # is safe and does not persist beyond this job.
+      - name: Start local registry
+        run: |
+          docker rm -f registry || true
+          docker run -d -p 5000:5000 --name registry registry:2
+          sudo mkdir -p /etc/containers/registries.conf.d
+          printf '[registries.insecure]\nregistries = ["localhost:5000"]\n' | sudo tee /etc/containers/registries.conf.d/localhost.conf
+
+      - name: Push image to local registry
+        run: |
+          podman push --tls-verify=false \
+            ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} \
+            localhost:5000/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
+
       # Rechunk is a tool used on Universal Blue to ensure the image doesn't have a single huge layer.
       # This improves resumability and fixes certain push/pull errors.
       # Documentation: https://github.com/ublue-os/legacy-rechunk
@@ -140,7 +157,7 @@ jobs:
         uses: ublue-os/legacy-rechunk@a925083d9af7cb04b3e2a6e8c01bfa495f38b710 # v1.0.0
         with:
           rechunk: 'ghcr.io/ublue-os/legacy-rechunk:v1.0.0-x86_64'
-          ref: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
+          ref: "localhost:5000/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
           prev-ref: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
           skip_compression: true
           labels: ${{ steps.metadata.outputs.labels }}
