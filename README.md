@@ -137,7 +137,7 @@ sudo systemctl reboot
 
 ## Image signing (optional)
 
-Image signing is optional. This repo has signing enabled in CI (with `SIGNING_SECRET` configured), plus SBOM generation/attestation and image rechunking (`max-layers 96`). To disable, comment the related steps in `.github/workflows/build.yml`.
+Image signing is optional. This repo has signing enabled in CI (with `SIGNING_SECRET` configured). SBOM generation/attestation is available but disabled by default — to enable, uncomment the Syft/SBOM steps in `.github/workflows/build.yml`. To disable signing, comment the related Cosign steps in the same file.
 
 Roll back to Bluefin DX:
 

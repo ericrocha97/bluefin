@@ -131,59 +131,6 @@ jobs:
             RELEASE_TAG=v${{ steps.date.outputs.short_date }}
           oci: false
 
-      # Start a local insecure registry so the rechunk action (which uses sudo podman)
-      # can pull the image built by buildah-build (stored in user podman storage).
-      # Only needed on default-branch non-PR runs where rechunk executes.
-      # Note: GitHub Actions runners are ephemeral, so the insecure registry config
-      # is safe and does not persist beyond this job.
-      - name: Start local registry
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        run: |
-          docker rm -f registry || true
-          docker run -d -p 5000:5000 --name registry registry:2
-          sudo mkdir -p /etc/containers/registries.conf.d
-          printf '[registries.insecure]\nregistries = ["localhost:5000"]\n' | sudo tee /etc/containers/registries.conf.d/localhost.conf
-          # Wait for the registry to be ready before pushing
-          for i in $(seq 1 15); do
-            if curl -fsSL http://localhost:5000/v2/ > /dev/null 2>&1; then
-              echo "Registry is ready."
-              break
-            fi
-            echo "Waiting for registry... attempt $i/15"
-            sleep 2
-          done
-          curl -fsSL http://localhost:5000/v2/ > /dev/null || { echo "Registry failed to start"; exit 1; }
-
-      - name: Push image to local registry
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        run: |
-          podman push --tls-verify=false \
-            ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} \
-            localhost:5000/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
-
-      # Rechunk is a tool used on Universal Blue to ensure the image doesn't have a single huge layer.
-      # This improves resumability and fixes certain push/pull errors.
-      # Documentation: https://github.com/ublue-os/legacy-rechunk
-      - name: Run Rechunker
-        id: rechunk
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        uses: ublue-os/legacy-rechunk@a925083d9af7cb04b3e2a6e8c01bfa495f38b710 # v1.0.0
-        with:
-          rechunk: 'ghcr.io/ublue-os/legacy-rechunk:v1.0.0-x86_64'
-          ref: "localhost:5000/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-          prev-ref: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-          skip_compression: true
-          labels: ${{ steps.metadata.outputs.labels }}
-
-      - name: Load rechunked image
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        run: |
-          podman pull --quiet ${{ steps.rechunk.outputs.ref }}
-          if [ -n "${{ steps.rechunk.outputs.location }}" ]; then
-            sudo rm -rf -- "${{ steps.rechunk.outputs.location }}"
-          fi
-          podman tag ${{ steps.rechunk.outputs.ref }} ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
-
       # Tag for registry
       - name: Tag for registry
         run: |
@@ -331,50 +278,58 @@ jobs:
           COSIGN_EXPERIMENTAL: false
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
 
-      # SBOM: Software Bill of Materials generation using Syft
+      # SBOM (OPTIONAL): Software Bill of Materials generation using Syft
       # Creates a detailed inventory of all software components in the image for supply chain security.
-      # Generated from the pushed image digest to ensure the SBOM matches the exact published image.
-      # Enabled by default. To disable, remove the "Setup Syft", "Generate SBOM", and "Add SBOM Attestation" steps below.
+      # To enable:
+      #   1. Uncomment the "Setup Syft" step below
+      #   2. Uncomment the "Generate SBOM" step below
+      #   3. If using image signing, also uncomment the "Add SBOM Attestation" step further down
       # Documentation: https://github.com/anchore/syft
 
-      - name: Setup Syft
-        id: setup-syft
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        uses: anchore/sbom-action/download-syft@8e94d75ddd33f69f691467e42275782e4bfefe84 # v0.20.9
-        with:
-          syft-version: v1.20.0
+      # - name: Setup Syft
+      #   id: setup-syft
+      #   if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      #   uses: anchore/sbom-action/download-syft@8e94d75ddd33f69f691467e42275782e4bfefe84 # v0.20.9
+      #   with:
+      #     syft-version: v1.20.0
+      #
+      # - name: Generate SBOM
+      #   id: generate-sbom
+      #   if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      #   env:
+      #     IMAGE: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
+      #     DIGEST: ${{ steps.push.outputs.digest }}
+      #     SYFT_CMD: ${{ steps.setup-syft.outputs.cmd }}
+      #   run: |
+      #     OUTPUT_PATH="$(mktemp -d)/sbom.json"
+      #     export SYFT_PARALLELISM=$(($(nproc)*2))
+      #     $SYFT_CMD "${IMAGE}@${DIGEST}" -o spdx-json=${OUTPUT_PATH}
+      #     echo "OUTPUT_PATH=${OUTPUT_PATH}" >> $GITHUB_OUTPUT
 
-      - name: Generate SBOM
-        id: generate-sbom
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        env:
-          IMAGE: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
-          DIGEST: ${{ steps.push.outputs.digest }}
-          SYFT_CMD: ${{ steps.setup-syft.outputs.cmd }}
-        run: |
-          OUTPUT_PATH="$(mktemp -d)/sbom.json"
-          export SYFT_PARALLELISM=$(($(nproc)*2))
-          $SYFT_CMD "${IMAGE}@${DIGEST}" -o spdx-json=${OUTPUT_PATH}
-          echo "OUTPUT_PATH=${OUTPUT_PATH}" >> $GITHUB_OUTPUT
-
-      # SBOM Attestation: Attaches SBOM to the signed image for supply chain security.
-      # Enabled by default alongside image signing. To disable, remove the "Add SBOM Attestation" step below.
+      # OPTIONAL: SBOM Attestation
+      # Attaches SBOM (Software Bill of Materials) to your signed image for supply chain security.
+      # Requires both SBOM generation AND image signing to be enabled first.
+      # To enable:
+      #   1. First enable image signing (Cosign steps above)
+      #   2. Uncomment "Setup Syft" and "Generate SBOM" steps above (required — this step
+      #      depends on steps.generate-sbom.outputs.OUTPUT_PATH)
+      #   3. Uncomment the "Add SBOM Attestation" step below
       # Documentation: https://slsa.dev/spec/v1.0/requirements#provenance-available
 
-      - name: Add SBOM Attestation
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        env:
-          IMAGE: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
-          DIGEST: ${{ steps.push.outputs.digest }}
-          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
-          SBOM_OUTPUT: ${{ steps.generate-sbom.outputs.OUTPUT_PATH }}
-        run: |
-          cd "$(dirname "$SBOM_OUTPUT")"
-          cosign attest -y \
-            --predicate "$(basename "$SBOM_OUTPUT")" \
-            --type spdxjson \
-            --key env://COSIGN_PRIVATE_KEY \
-            "${IMAGE}@${DIGEST}"
+      # - name: Add SBOM Attestation
+      #   if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      #   env:
+      #     IMAGE: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
+      #     DIGEST: ${{ steps.push.outputs.digest }}
+      #     COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+      #     SBOM_OUTPUT: ${{ steps.generate-sbom.outputs.OUTPUT_PATH }}
+      #   run: |
+      #     cd "$(dirname "$SBOM_OUTPUT")"
+      #     cosign attest -y \
+      #       --predicate "$(basename "$SBOM_OUTPUT")" \
+      #       --type spdxjson \
+      #       --key env://COSIGN_PRIVATE_KEY \
+      #       "${IMAGE}@${DIGEST}"
 
   create_release:
     name: Create GitHub Release
