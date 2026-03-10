@@ -131,17 +131,26 @@ jobs:
             RELEASE_TAG=v${{ steps.date.outputs.short_date }}
           oci: false
 
-      - name: Rechunk image
+      # Rechunk is a tool used on Universal Blue to ensure the image doesn't have a single huge layer.
+      # This improves resumability and fixes certain push/pull errors.
+      # Documentation: https://github.com/ublue-os/legacy-rechunk
+      - name: Run Rechunker
+        id: rechunk
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: ublue-os/legacy-rechunk@a925083d9af7cb04b3e2a6e8c01bfa495f38b710 # v1.0.0
+        with:
+          rechunk: 'ghcr.io/ublue-os/legacy-rechunk:v1.0.0-x86_64'
+          ref: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
+          prev-ref: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
+          skip_compression: true
+          labels: ${{ steps.metadata.outputs.labels }}
+
+      - name: Load rechunked image
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
-          IMAGE_REF="${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-          podman run --rm --privileged \
-            -v /var/lib/containers:/var/lib/containers \
-            --entrypoint /usr/libexec/bootc-base-imagectl \
-            "$IMAGE_REF" \
-            rechunk --max-layers 96 \
-            "$IMAGE_REF" \
-            "$IMAGE_REF"
+          IMAGE=$(podman pull ${{ steps.rechunk.outputs.ref }})
+          sudo rm -rf ${{ steps.rechunk.outputs.location }}
+          podman tag $IMAGE ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}
 
       # Tag for registry
       - name: Tag for registry
