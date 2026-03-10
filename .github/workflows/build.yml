@@ -308,10 +308,12 @@ jobs:
 
       # OPTIONAL: SBOM Attestation
       # Attaches SBOM (Software Bill of Materials) to your signed image for supply chain security.
-      # Requires image signing to be enabled first (see above).
+      # Requires both SBOM generation AND image signing to be enabled first.
       # To enable:
-      #   1. First enable image signing (see above section)
-      #   2. Uncomment the "Add SBOM Attestation" step below
+      #   1. First enable image signing (Cosign steps above)
+      #   2. Uncomment "Setup Syft" and "Generate SBOM" steps above (required — this step
+      #      depends on steps.generate-sbom.outputs.OUTPUT_PATH)
+      #   3. Uncomment the "Add SBOM Attestation" step below
       # Documentation: https://slsa.dev/spec/v1.0/requirements#provenance-available
 
       # - name: Add SBOM Attestation
