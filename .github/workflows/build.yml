@@ -135,7 +135,7 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
           IMAGE_REF="${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-          sudo podman run --rm --privileged \
+          podman run --rm --privileged \
             -v /var/lib/containers:/var/lib/containers \
             --entrypoint /usr/libexec/bootc-base-imagectl \
             "$IMAGE_REF" \
@@ -247,12 +247,9 @@ jobs:
           name: manifest
           path: manifest.txt
 
-      # SBOM (OPTIONAL): Software Bill of Materials generation using Syft
+      # SBOM: Software Bill of Materials generation using Syft
       # Creates a detailed inventory of all software components in the image for supply chain security.
-      # To enable:
-      #   1. Uncomment the "Setup Syft" step below
-      #   2. Uncomment the "Generate SBOM" step below
-      #   3. If using image signing, also uncomment the "Add SBOM Attestation" step further down
+      # Enabled by default. To disable, remove the "Setup Syft", "Generate SBOM", and "Add SBOM Attestation" steps below.
       # Documentation: https://github.com/anchore/syft
 
       - name: Setup Syft
@@ -270,7 +267,7 @@ jobs:
         run: |
           OUTPUT_PATH="$(mktemp -d)/sbom.json"
           export SYFT_PARALLELISM=$(($(nproc)*2))
-          $SYFT_CMD ${IMAGE}:${DEFAULT_TAG} -o spdx-json=${OUTPUT_PATH}
+          $SYFT_CMD podman:${IMAGE}:${DEFAULT_TAG} -o spdx-json=${OUTPUT_PATH}
           echo "OUTPUT_PATH=${OUTPUT_PATH}" >> $GITHUB_OUTPUT
 
       # These `if` statements are so that pull requests for your custom images do not make it publish any packages under your name without you knowing
@@ -316,12 +313,8 @@ jobs:
           COSIGN_EXPERIMENTAL: false
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
 
-      # OPTIONAL: SBOM Attestation
-      # Attaches SBOM (Software Bill of Materials) to your signed image for supply chain security.
-      # Requires image signing to be enabled first (see above).
-      # To enable:
-      #   1. First enable image signing (see above section)
-      #   2. Uncomment the "Add SBOM Attestation" step below
+      # SBOM Attestation: Attaches SBOM to the signed image for supply chain security.
+      # Enabled by default alongside image signing. To disable, remove the "Add SBOM Attestation" step below.
       # Documentation: https://slsa.dev/spec/v1.0/requirements#provenance-available
 
       - name: Add SBOM Attestation
