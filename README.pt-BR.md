@@ -137,7 +137,7 @@ sudo systemctl reboot
 
 ## Assinatura de imagem (opcional)
 
-A assinatura de imagem vem desativada por padrão para que os primeiros builds funcionem imediatamente. Ative depois para uso em produção (veja a seção de assinatura neste repositório).
+A assinatura de imagem é opcional. Este repositório mantém a assinatura ativa no CI (com `SIGNING_SECRET` configurado), além da geração/atestado de SBOM e do rechunk da imagem (`max-layers 96`). Para desativar, comente os passos relacionados em `.github/workflows/build.yml`.
 
 Voltar para o Bluefin DX:
 
