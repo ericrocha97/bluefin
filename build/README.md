@@ -11,10 +11,14 @@ This directory contains build scripts that run during image creation. Scripts ar
 
 - **`10-build.sh`** - Main build script. Copies Flatpak preinstall files, installs `copr-cli`, `earlyoom`, `ffmpegthumbnailer`, and `libvdpau-va-gl`, enables `podman.socket`, and runs the other numbered scripts.
 - **`15-system-optimizations.sh`** - Installs CachyOS/LinuxToys system optimizations (sysctl, udev, modprobe, tmpfiles, journald), configures earlyoom, rpm-ostreed auto-updates, and GNOME tweaks.
-- **`20-third-party-repos.sh`** - Installs VSCode Insiders and Warp Terminal from official RPM repos.
+- **`20-third-party-repos.sh`** - Installs VSCode Insiders, Warp Terminal, and Vicinae (via Terra repo) from RPM repos.
 - **`30-cosmic-desktop.sh`** - Installs COSMIC desktop from System76's COPR repository.
 - **`99-versions.sh`** - Writes a version manifest to `/usr/share/bluefin-cosmic-dx/manifest.json`.
 - **`copr-helpers.sh`** - Helper functions for COPR management and logging.
+
+## Included Repo Files
+
+- **`terra.repo`** - Pinned Terra repository definition used by `20-third-party-repos.sh` to install Vicinae.
 
 ## Custom Files (Brewfiles and ujust)
 

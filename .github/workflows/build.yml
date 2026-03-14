@@ -42,6 +42,7 @@ jobs:
       kernel_version: ${{ steps.versions.outputs.kernel_version }}
       vscode_version: ${{ steps.versions.outputs.vscode_version }}
       warp_version: ${{ steps.versions.outputs.warp_version }}
+      vicinae_version: ${{ steps.versions.outputs.vicinae_version }}
       cosmic_session_version: ${{ steps.versions.outputs.cosmic_session_version }}
       changelog: ${{ steps.versions.outputs.changelog }}
 
@@ -171,6 +172,7 @@ jobs:
           kernel_version=$(normalize_version "$(get_version_from_manifest "$current_manifest" kernel)")
           vscode_version=$(normalize_version "$(get_version_from_manifest "$current_manifest" code-insiders)")
           warp_version=$(normalize_version "$(get_version_from_manifest "$current_manifest" warp-terminal)")
+          vicinae_version=$(normalize_version "$(get_version_from_manifest "$current_manifest" vicinae)")
           cosmic_session_version=$(normalize_version "$(get_version_from_manifest "$current_manifest" cosmic-session)")
 
           latest_tag=$(gh release list --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || true)
@@ -187,6 +189,7 @@ jobs:
           tracked_packages=(
             code-insiders
             warp-terminal
+            vicinae
             cosmic-session
             cosmic-comp
             cosmic-panel
@@ -221,6 +224,7 @@ jobs:
           echo "kernel_version=$kernel_version" >> "$GITHUB_OUTPUT"
           echo "vscode_version=$vscode_version" >> "$GITHUB_OUTPUT"
           echo "warp_version=$warp_version" >> "$GITHUB_OUTPUT"
+          echo "vicinae_version=$vicinae_version" >> "$GITHUB_OUTPUT"
           echo "cosmic_session_version=$cosmic_session_version" >> "$GITHUB_OUTPUT"
           {
             echo "changelog<<EOF"
@@ -365,6 +369,7 @@ jobs:
             | Kernel | ${{ needs.build_push.outputs.kernel_version }} |
             | VSCode Insiders | ${{ needs.build_push.outputs.vscode_version }} |
             | Warp Terminal | ${{ needs.build_push.outputs.warp_version }} |
+            | Vicinae | ${{ needs.build_push.outputs.vicinae_version }} |
             | COSMIC Session | ${{ needs.build_push.outputs.cosmic_session_version }} |
 
             ## Changes Since Previous Release 📝

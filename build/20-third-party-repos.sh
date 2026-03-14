@@ -81,5 +81,36 @@ rm -f /etc/yum.repos.d/warpdotdev.repo
 log_success "Warp Terminal installation complete"
 echo "::endgroup::"
 
+###############################################################################
+# Vicinae
+###############################################################################
+
+echo "::group:: Install Vicinae"
+log_step "Installing Vicinae..."
+
+# Terra repo definition pinned to terrapkg/subatomic-repos@6672af7a7125aef3400606dc9da174cfe423a0a1
+# Note: repository contents are still rolling; this only pins the repo file.
+log_info "Adding Terra repository (Bazzite-compatible)..."
+install -m 0644 /ctx/build/terra.repo /etc/yum.repos.d/terra.repo
+
+log_info "Importing Terra GPG key..."
+releasever=$(rpm --eval '%{fedora}' 2>/dev/null || true)
+if [[ -z "$releasever" ]]; then
+    releasever=$(grep -E '^VERSION_ID=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"')
+fi
+rpm --import "https://repos.fyralabs.com/terra${releasever}/key.asc"
+
+log_info "Installing vicinae package..."
+dnf5 install -y vicinae
+
+# Verify installation
+verify_package "vicinae"
+
+log_info "Cleaning up Terra repository file..."
+rm -f /etc/yum.repos.d/terra.repo
+
+log_success "Vicinae installation complete"
+echo "::endgroup::"
+
 log_section "Third-Party Software Installation Complete"
 log_success "All third-party applications installed successfully"
