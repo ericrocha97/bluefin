@@ -16,6 +16,10 @@ This directory contains build scripts that run during image creation. Scripts ar
 - **`99-versions.sh`** - Writes a version manifest to `/usr/share/bluefin-cosmic-dx/manifest.json`.
 - **`copr-helpers.sh`** - Helper functions for COPR management and logging.
 
+## Included Repo Files
+
+- **`terra.repo`** - Pinned Terra repository definition used by `20-third-party-repos.sh` to install Vicinae.
+
 ## Custom Files (Brewfiles and ujust)
 
 Custom Brewfiles (in `custom/brew/`) and ujust files (in `custom/ujust/`) are automatically copied during the build process if they exist.
