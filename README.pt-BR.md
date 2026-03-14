@@ -23,6 +23,7 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 - **Ferramentas CLI**: copr-cli (gerenciamento e monitoramento de repositórios COPR)
 - **Ferramentas do Sistema**: earlyoom (prevenção de OOM), ffmpegthumbnailer (thumbnails de vídeo)
 - **Codecs**: Codecs multimídia completos via negativo17/fedora-multimedia (imagem base), libvdpau-va-gl
+- **Apps de terceiros**: VSCode Insiders, Warp Terminal, Vicinae
 
 ### Aplicações adicionadas (runtime)
 
@@ -50,7 +51,7 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 - Sessões de desktop duplas disponíveis no GDM (GNOME e COSMIC).
 - Comandos customizados do ujust disponíveis: install-nvm, install-sdkman, install-dev-managers.
 
-*Última atualização: 2026-02-12*
+*Última atualização: 2026-03-14*
 
 ## O que é esta imagem
 
@@ -63,6 +64,7 @@ Baseado no **Bluefin DX**, esta imagem adiciona:
 - **Desktop COSMIC** (System76) como alternativa ao GNOME
 - **VSCode Insiders** instalado via RPM
 - **Warp Terminal** instalado via RPM
+- **Vicinae** instalado via repo Terra (compatível com Bazzite)
 - **Suporte dual desktop**: Escolha GNOME ou COSMIC no login (GDM)
 - Todos os recursos do Bluefin DX (containers, DevPods, ferramentas CLI, etc.)
 

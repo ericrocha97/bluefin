@@ -81,5 +81,33 @@ rm -f /etc/yum.repos.d/warpdotdev.repo
 log_success "Warp Terminal installation complete"
 echo "::endgroup::"
 
+###############################################################################
+# Vicinae
+###############################################################################
+
+echo "::group:: Install Vicinae"
+log_step "Installing Vicinae..."
+
+log_info "Adding Terra repository (Bazzite-compatible)..."
+curl -fsSL https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo -o /etc/yum.repos.d/terra.repo
+
+if grep -q '^enabled=' /etc/yum.repos.d/terra.repo; then
+    sed -i 's/^enabled=.*/enabled=1/' /etc/yum.repos.d/terra.repo
+else
+    echo 'enabled=1' >> /etc/yum.repos.d/terra.repo
+fi
+
+log_info "Installing vicinae package..."
+dnf5 install -y vicinae
+
+# Verify installation
+verify_package "vicinae"
+
+log_info "Cleaning up Terra repository file..."
+rm -f /etc/yum.repos.d/terra.repo
+
+log_success "Vicinae installation complete"
+echo "::endgroup::"
+
 log_section "Third-Party Software Installation Complete"
 log_success "All third-party applications installed successfully"
