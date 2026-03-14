@@ -88,8 +88,9 @@ echo "::endgroup::"
 echo "::group:: Install Vicinae"
 log_step "Installing Vicinae..."
 
+# Terra repo snapshot pinned to terrapkg/subatomic-repos@6672af7a7125aef3400606dc9da174cfe423a0a1
 log_info "Adding Terra repository (Bazzite-compatible)..."
-curl -fsSL https://github.com/terrapkg/subatomic-repos/raw/main/terra.repo -o /etc/yum.repos.d/terra.repo
+install -m 0644 /ctx/build/terra.repo /etc/yum.repos.d/terra.repo
 
 if grep -q '^enabled=' /etc/yum.repos.d/terra.repo; then
     sed -i 's/^enabled=.*/enabled=1/' /etc/yum.repos.d/terra.repo
