@@ -88,15 +88,17 @@ echo "::endgroup::"
 echo "::group:: Install Vicinae"
 log_step "Installing Vicinae..."
 
-# Terra repo snapshot pinned to terrapkg/subatomic-repos@6672af7a7125aef3400606dc9da174cfe423a0a1
+# Terra repo definition pinned to terrapkg/subatomic-repos@6672af7a7125aef3400606dc9da174cfe423a0a1
+# Note: repository contents are still rolling; this only pins the repo file.
 log_info "Adding Terra repository (Bazzite-compatible)..."
 install -m 0644 /ctx/build/terra.repo /etc/yum.repos.d/terra.repo
 
-if grep -q '^enabled=' /etc/yum.repos.d/terra.repo; then
-    sed -i 's/^enabled=.*/enabled=1/' /etc/yum.repos.d/terra.repo
-else
-    echo 'enabled=1' >> /etc/yum.repos.d/terra.repo
+log_info "Importing Terra GPG key..."
+releasever=$(rpm --eval '%{fedora}' 2>/dev/null || true)
+if [[ -z "$releasever" ]]; then
+    releasever=$(grep -E '^VERSION_ID=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"')
 fi
+rpm --import "https://repos.fyralabs.com/terra${releasever}/key.asc"
 
 log_info "Installing vicinae package..."
 dnf5 install -y vicinae
