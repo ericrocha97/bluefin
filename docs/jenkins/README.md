@@ -1,88 +1,218 @@
-# Jenkins + n8n Operations Guide
+# Guia Detalhado: Configurar Jenkins para este Repositório
 
-This guide documents the operational setup for the Jenkins pipeline in `Jenkinsfile`, including Docker Hub publishing, GitHub release creation, n8n event ingestion, Postgres persistence, and email notifications.
+Este guia mostra, do zero, como configurar o Jenkins para rodar o `Jenkinsfile` deste repositório e fazer:
 
-## Architecture
+1. build da imagem
+2. push no Docker Hub
+3. criação/atualização de release no GitHub
+4. envio de evento para n8n
+5. persistência no PostgreSQL + notificação por e-mail via n8n
 
-- Jenkins builds and tags the image, then pushes tags to Docker Hub.
-- Jenkins generates and updates GitHub Releases with release notes and package manifest artifacts.
-- Jenkins posts a build event payload to n8n via `ci/jenkins/scripts/notify_n8n.sh`.
-- n8n validates the payload, upserts it into Postgres, and sends an email alert.
+## 1) Como o pipeline funciona
 
-## Required Jenkins Credentials
+O pipeline definido em `Jenkinsfile` executa este fluxo:
 
-Configure these credentials in Jenkins before running the pipeline:
+- `Build Image`: build da imagem e geração de `manifest.txt` + metadados.
+- `Push Docker Hub`: autentica no Docker Hub e publica as tags.
+- `Create GitHub Release`: cria/atualiza release e anexa `manifest.txt`.
+- `post { success/failure }`: envia payload para n8n usando `ci/jenkins/scripts/notify_n8n.sh`.
 
-1. `dockerhub-creds` (Username with password)
-   - Used in `Push Docker Hub` stage.
-   - Username: Docker Hub account or org robot user.
-   - Password: Docker Hub access token.
-2. `WEBHOOK_URL` (Secret text or environment injected by your Jenkins config)
-   - URL for n8n Webhook Trigger endpoint.
-   - Required by `ci/jenkins/scripts/notify_n8n.sh` when `DRY_RUN` is not `true`.
-3. `N8N_WEBHOOK_SHARED_TOKEN` (Secret text)
-   - Shared secret sent in header `x-jenkins-webhook-token`.
-   - Must match the n8n environment value used by the `Validate Payload` node.
-4. `GITHUB_TOKEN` (Secret text, recommended)
-   - Required for `gh release` commands in the release stage unless `gh` auth is already preconfigured on the Jenkins agent.
-   - Scope must allow creating/editing releases and uploading artifacts.
+Notificação para n8n é **best effort**: se o webhook falhar, o pipeline registra warning, mas não invalida o build já concluído.
 
-## n8n Setup
+## 2) Pré-requisitos no servidor Jenkins
 
-1. Import workflow blueprint:
-   - File: `n8n/blueprints/jenkins-build-events-workflow.json`
-2. Configure Postgres credential in n8n:
-   - Assign it to the `Postgres Upsert` node.
-3. Configure email transport in n8n:
-   - Assign SMTP credential to the `Send Email` node.
-   - Set `N8N_ALERT_EMAIL_TO` if you want a non-default recipient.
-4. Activate the workflow after credential binding.
-5. Set or expose webhook endpoint to Jenkins as `WEBHOOK_URL`.
-    - For the provided blueprint, the endpoint shape is `/webhook/jenkins-build-events`.
-    - Minimum payload fields expected by validation are `job_name`, `build_number`, and `status`.
-6. Set n8n env var `N8N_WEBHOOK_SHARED_TOKEN`.
-    - Incoming webhook requests are rejected when header `x-jenkins-webhook-token` is missing or does not match.
+No host/agent onde o job vai rodar, você precisa de:
 
-## Postgres Setup
+- `docker` CLI + daemon funcionando
+- `gh` (GitHub CLI)
+- `bash`, `awk`, `coreutils`
+- acesso de rede para:
+  - `docker.io`
+  - `api.github.com`
+  - URL do n8n
 
-Create schema/table/indexes before enabling pipeline notifications.
+Teste rápido no servidor:
+
+```bash
+docker --version
+docker info
+gh --version
+gh auth status || true
+```
+
+## 3) Plugins Jenkins recomendados
+
+Mínimo para este fluxo:
+
+- `Pipeline`
+- `Git`
+- `Credentials Binding`
+
+Úteis (opcional):
+
+- `Build Timeout`
+- `Timestamper`
+- `Workspace Cleanup`
+- `Folders`
+
+## 4) Configurar credenciais no Jenkins
+
+Abra: `Manage Jenkins` -> `Credentials` -> `(global)` -> `Add Credentials`
+
+### 4.1 Docker Hub
+
+- **Kind:** `Username with password`
+- **ID:** `dockerhub-creds`
+- **Username:** usuário/robô Docker Hub
+- **Password:** Docker Hub Access Token
+
+### 4.2 Segredos em variável de ambiente (para este Jenkinsfile)
+
+O `Jenkinsfile` atual espera as variáveis abaixo no ambiente do job/agent:
+
+- `GH_TOKEN` (ou `GITHUB_TOKEN`) para comandos `gh`
+- `WEBHOOK_URL` (URL de produção do webhook n8n)
+- `N8N_WEBHOOK_SHARED_TOKEN` (token compartilhado do header)
+
+Forma mais simples:
+
+`Manage Jenkins` -> `System` -> `Global properties` -> marque `Environment variables` e adicione:
+
+- `GH_TOKEN=<seu_token_github>`
+- `WEBHOOK_URL=https://SEU_N8N/webhook/jenkins-build-events`
+- `N8N_WEBHOOK_SHARED_TOKEN=<token_forte>`
+
+Observação: para release automation, o token GitHub precisa de permissão para releases no repositório.
+
+## 5) Configurar n8n
+
+### 5.1 Importar blueprint
+
+- Arquivo: `n8n/blueprints/jenkins-build-events-workflow.json`
+
+### 5.2 Configurar credenciais no n8n
+
+- credencial PostgreSQL no node `Postgres Upsert`
+- credencial SMTP no node `Send Email`
+
+### 5.3 Configurar segurança do webhook
+
+No ambiente do n8n, definir:
+
+- `N8N_WEBHOOK_SHARED_TOKEN=<mesmo_token_configurado_no_jenkins>`
+
+O workflow rejeita requests sem header `x-jenkins-webhook-token` válido.
+
+### 5.4 Ativar workflow
+
+- Ative o workflow no n8n e copie a URL de produção.
+- endpoint esperado pelo blueprint: `/webhook/jenkins-build-events`
+
+## 6) Configurar PostgreSQL
+
+Executar schema:
 
 ```bash
 psql "$POSTGRES_DSN" -f n8n/sql/001_ci_pipeline_runs.sql
 ```
 
-Expected object:
+Tabela principal criada: `ci_pipeline_runs`
 
-- `ci_pipeline_runs` table with unique key `(job_name, build_number)`.
+- chave única: `(job_name, build_number)`
+- armazenamento de payload em `jsonb`
 
-## Email Notification Behavior
+## 7) Criar o Job Pipeline no Jenkins
 
-- Triggered after successful DB upsert in n8n.
-- Subject format: `[CI] <job_name> #<build_number> <status>`.
-- Body includes job name, build number, status, URL, and published tags.
+1. `New Item`
+2. Nome: por exemplo `bluefin-main-build`
+3. Tipo: `Pipeline`
+4. Em `Pipeline`:
+   - `Definition`: `Pipeline script from SCM`
+   - `SCM`: `Git`
+   - `Repository URL`: URL deste repositório
+   - credencial Git (se necessário)
+   - `Branches to build`:
+     - enquanto estiver testando nesta branch: `*/feat/jenkins`
+     - depois do merge para main: `*/main`
+   - `Script Path`: `Jenkinsfile`
 
-## Smoke Test Checklist
+Salvar.
 
-Run this checklist after initial setup or infra changes:
+## 8) Trigger (cron + manual)
 
-1. Validate local scripts and fixtures:
-   - `bash ci/jenkins/tests/run-all.sh`
-2. Validate shell scripts:
-    - `shellcheck ci/jenkins/scripts/*.sh ci/jenkins/tests/*.sh`
-3. Validate Justfile syntax:
-    - `just --list`
-4. Verify GitHub CLI auth on the Jenkins runtime user:
-   - `gh auth status`
-5. Trigger a Jenkins build manually.
-6. Confirm Docker Hub tags are published (`stable`, date tags).
-7. Confirm GitHub Release was created/updated and manifest uploaded.
-8. Confirm n8n execution succeeded for webhook request.
-9. Confirm Postgres row upserted in `ci_pipeline_runs`.
-10. Confirm email alert was received.
+O cron já está no `Jenkinsfile`:
 
-## Operations Notes
+```groovy
+triggers {
+  cron('H 10 * * *')
+}
+```
 
-- For dry runs of webhook payload generation, set `DRY_RUN=true` when invoking `ci/jenkins/scripts/notify_n8n.sh`.
-- Jenkins notification to n8n is best-effort in `post` hooks: notify failures are logged but do not fail the overall pipeline result.
-- If release creation fails, verify `gh` auth and repository permissions for the Jenkins runtime user.
-- If n8n rejects payloads, inspect required fields in the `Validate Payload` node.
+Isso agenda execução diária em horário distribuído.
+Você também pode executar manualmente com `Build Now`.
+
+## 9) Primeiro teste (smoke test)
+
+1. Rodar `Build Now`.
+2. Verificar no log do Jenkins:
+   - build da imagem
+   - login/push no Docker Hub
+   - `gh release view/edit/create/upload`
+   - warning/ok no notify para n8n
+3. Verificar resultados externos:
+   - Docker Hub recebeu tags (`stable`, `stable.YYYYMMDD`, `YYYYMMDD`)
+   - release no GitHub foi criada/atualizada
+   - n8n recebeu execução
+   - PostgreSQL recebeu upsert
+   - e-mail foi enviado
+
+## 10) Troubleshooting rápido
+
+### Erro no push Docker Hub
+
+- Mensagem comum: `unauthorized`
+- Verifique credencial `dockerhub-creds` e token do Docker Hub.
+
+### Erro nos comandos `gh`
+
+- Mensagem comum: auth/repo scope
+- Verifique `GH_TOKEN`/`GITHUB_TOKEN` e escopos de release.
+
+### Erro no notify para n8n
+
+- Mensagem comum: `WEBHOOK_URL is required` ou `N8N_WEBHOOK_SHARED_TOKEN is required`
+- Confirme variáveis de ambiente no Jenkins.
+
+### n8n rejeita webhook
+
+- Mensagem comum de token inválido
+- Verifique se `N8N_WEBHOOK_SHARED_TOKEN` é idêntico em Jenkins e n8n.
+
+### PostgreSQL não grava
+
+- Verifique credencial do node `Postgres Upsert`.
+- Garanta que o schema foi aplicado (`n8n/sql/001_ci_pipeline_runs.sql`).
+
+## 11) Configuração recomendada de resiliência
+
+`ci/jenkins/scripts/notify_n8n.sh` já suporta tuning via env vars:
+
+- `N8N_NOTIFY_CONNECT_TIMEOUT_SECONDS` (default `5`)
+- `N8N_NOTIFY_MAX_TIME_SECONDS` (default `30`)
+- `N8N_NOTIFY_RETRY_COUNT` (default `3`)
+- `N8N_NOTIFY_RETRY_DELAY_SECONDS` (default `2`)
+
+Exemplo (Global properties):
+
+- `N8N_NOTIFY_CONNECT_TIMEOUT_SECONDS=5`
+- `N8N_NOTIFY_MAX_TIME_SECONDS=20`
+- `N8N_NOTIFY_RETRY_COUNT=2`
+- `N8N_NOTIFY_RETRY_DELAY_SECONDS=2`
+
+## 12) Comandos de validação local (opcional)
+
+```bash
+bash ci/jenkins/tests/run-all.sh
+shellcheck ci/jenkins/scripts/*.sh ci/jenkins/tests/*.sh
+just --list
+```

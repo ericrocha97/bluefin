@@ -1,13 +1,19 @@
 # bluefin-cosmic-dx
 
-[![Build](https://github.com/ericrocha97/bluefin/actions/workflows/build.yml/badge.svg)](https://github.com/ericrocha97/bluefin/actions/workflows/build.yml)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/bluefin-cosmic-dx)](https://artifacthub.io/packages/search?repo=bluefin-cosmic-dx)
+[![Docker Hub](https://img.shields.io/docker/pulls/ericrocha97/bluefin-cosmic-dx?label=Docker%20Hub&logo=docker)](https://hub.docker.com/r/ericrocha97/bluefin-cosmic-dx)
 
 Este projeto foi criado usando o template finpilot: <https://github.com/projectbluefin/finpilot>.
 
 Versão em inglês: [README.md](README.md)
 
 Ele constrói uma imagem bootc customizada baseada no Bluefin DX, usando o padrão multi-stage OCI do ecossistema Bluefin.
+
+## Build e Publicação
+
+- O build e a publicação oficiais da imagem rodam via Jenkins self-hosted (`Jenkinsfile`).
+- Registro oficial da imagem: `docker.io/ericrocha97/bluefin-cosmic-dx`.
+- O GitHub Actions pode continuar sendo usado para validações do repositório, enquanto a publicação da imagem fica no Jenkins.
 
 ## O que torna este Raptor diferente?
 
@@ -133,13 +139,9 @@ just run-vm-qcow2       # 3. Executa a VM
 Trocar seu sistema para esta imagem:
 
 ```bash
-sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
+sudo bootc switch docker.io/ericrocha97/bluefin-cosmic-dx:stable
 sudo systemctl reboot
 ```
-
-## Assinatura de imagem (opcional)
-
-A assinatura de imagem é opcional. Este repositório mantém a assinatura ativa no CI (com `SIGNING_SECRET` configurado). A geração/atestado de SBOM está disponível mas desativada por padrão — para ativar, descomente os passos do Syft/SBOM em `.github/workflows/build.yml`. Para desativar a assinatura, comente os passos do Cosign no mesmo arquivo.
 
 Voltar para o Bluefin DX:
 
