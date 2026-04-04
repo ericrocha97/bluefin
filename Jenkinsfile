@@ -92,14 +92,23 @@ set -euo pipefail
 
 printf '%s' "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
 
+short_date="${SHORT_DATE:-}"
+if [[ -z "$short_date" && -f ci/jenkins/build/short_date ]]; then
+  short_date="$(<ci/jenkins/build/short_date)"
+fi
+: "${short_date:?short_date is required}"
+
+cleanup() {
+  docker logout >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
 mapfile -t tags < "$TAGS_FILE"
 for tag in "${tags[@]}"; do
   [[ -n "$tag" ]] || continue
-  docker tag "$IMAGE_NAME:${SHORT_DATE}" "$DOCKERHUB_REPO:${tag}"
+  docker tag "$IMAGE_NAME:${short_date}" "$DOCKERHUB_REPO:${tag}"
   docker push "$DOCKERHUB_REPO:${tag}"
 done
-
-docker logout
 '''
                 }
             }
@@ -109,6 +118,19 @@ docker logout
             steps {
                 sh '''#!/usr/bin/env bash
 set -euo pipefail
+
+short_date="${SHORT_DATE:-}"
+if [[ -z "$short_date" && -f ci/jenkins/build/short_date ]]; then
+  short_date="$(<ci/jenkins/build/short_date)"
+fi
+
+release_tag="${RELEASE_TAG:-}"
+if [[ -z "$release_tag" && -f ci/jenkins/build/release_tag ]]; then
+  release_tag="$(<ci/jenkins/build/release_tag)"
+fi
+
+: "${short_date:?short_date is required}"
+: "${release_tag:?release_tag is required}"
 
 bluefin_version="unknown"
 if [[ -f ci/jenkins/build/bluefin_version ]]; then
@@ -122,10 +144,10 @@ vicinae_version="$(awk -F= '$1=="vicinae_version" {print $2}' "$OUTPUT_FILE")"
 cosmic_session_version="$(awk -F= '$1=="cosmic_session_version" {print $2}' "$OUTPUT_FILE")"
 changelog="$(awk '/^changelog<<EOF$/{flag=1;next}/^EOF$/{flag=0}flag' "$OUTPUT_FILE")"
 
-export RELEASE_TAG="$RELEASE_TAG"
+export RELEASE_TAG="$release_tag"
 export IMAGE_REGISTRY="docker.io"
 export IMAGE_NAME="$IMAGE_NAME"
-export SHORT_DATE="$SHORT_DATE"
+export SHORT_DATE="$short_date"
 export BLUEFIN_VERSION="$bluefin_version"
 export KERNEL_VERSION="${kernel_version:-unknown}"
 export VSCODE_VERSION="${vscode_version:-unknown}"
@@ -138,13 +160,13 @@ export RELEASE_BODY_FILE="$RELEASE_BODY_FILE"
 export MANIFEST_FILE="$MANIFEST_FILE"
 bash ci/jenkins/scripts/create_github_release.sh --render-only
 
-if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-  gh release edit "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file "$RELEASE_BODY_FILE"
+if gh release view "$release_tag" >/dev/null 2>&1; then
+  gh release edit "$release_tag" --title "$release_tag" --notes-file "$RELEASE_BODY_FILE"
 else
-  gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file "$RELEASE_BODY_FILE"
+  gh release create "$release_tag" --title "$release_tag" --notes-file "$RELEASE_BODY_FILE"
 fi
 
-gh release upload "$RELEASE_TAG" "$MANIFEST_FILE" --clobber
+gh release upload "$release_tag" "$MANIFEST_FILE" --clobber
 '''
             }
         }
@@ -157,7 +179,25 @@ set -euo pipefail
 
 published_tags="$(paste -sd, "$TAGS_FILE")"
 finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-started_epoch="$(date -u -d "$BUILD_STARTED_AT" +%s 2>/dev/null || printf '0')"
+build_started_at="${BUILD_STARTED_AT:-}"
+if [[ -z "$build_started_at" && -f ci/jenkins/build/started_at ]]; then
+  build_started_at="$(<ci/jenkins/build/started_at)"
+fi
+if [[ -z "$build_started_at" ]]; then
+  build_started_at="$finished_at"
+fi
+
+short_date="${SHORT_DATE:-}"
+if [[ -z "$short_date" && -f ci/jenkins/build/short_date ]]; then
+  short_date="$(<ci/jenkins/build/short_date)"
+fi
+
+release_tag="${RELEASE_TAG:-}"
+if [[ -z "$release_tag" && -f ci/jenkins/build/release_tag ]]; then
+  release_tag="$(<ci/jenkins/build/release_tag)"
+fi
+
+started_epoch="$(date -u -d "$build_started_at" +%s 2>/dev/null || printf '0')"
 finished_epoch="$(date -u -d "$finished_at" +%s 2>/dev/null || printf '0')"
 duration_ms="$(( (finished_epoch - started_epoch) * 1000 ))"
 if (( duration_ms < 0 )); then duration_ms=0; fi
@@ -168,13 +208,13 @@ export BUILD_NUMBER="$BUILD_NUMBER"
 export BUILD_URL="$BUILD_URL"
 export GIT_SHA="$GIT_COMMIT"
 export IMAGE_NAME="$DOCKERHUB_REPO"
-export PUBLISHED_TAGS="${published_tags:-$SHORT_DATE}"
+export PUBLISHED_TAGS="${published_tags:-$short_date}"
 export TIMESTAMP_UTC="$finished_at"
 export ERROR_SUMMARY=""
-export STARTED_AT="$BUILD_STARTED_AT"
+export STARTED_AT="$build_started_at"
 export FINISHED_AT="$finished_at"
 export DURATION_MS="$duration_ms"
-export RELEASE_TAG="$RELEASE_TAG"
+export RELEASE_TAG="${release_tag:-unknown}"
 if ! bash ci/jenkins/scripts/notify_n8n.sh; then
   echo "WARN: notify_n8n.sh failed in post-success hook (best-effort notification)." >&2
 fi
