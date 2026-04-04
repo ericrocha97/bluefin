@@ -70,6 +70,10 @@ Based on **Bluefin DX**, this image adds:
 
 Base image: `ghcr.io/ublue-os/bluefin-dx:stable-daily`
 
+## Jenkins Pipeline Operations
+
+For Jenkins CI/CD operations (Docker Hub publishing, GitHub release automation, n8n webhook ingestion, Postgres persistence, and email alerting), see `docs/jenkins/README.md`.
+
 ## Basic usage
 
 ### Just Commands
