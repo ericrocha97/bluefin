@@ -1,0 +1,132 @@
+{
+  "name": "Jenkins Build Events",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "jenkins-build-events",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst required = ['job_name', 'build_number', 'status'];\nconst missing = required.filter((key) => body[key] === undefined || body[key] === null || body[key] === '');\nif (missing.length > 0) {\n  throw new Error(`Missing required fields: ${missing.join(', ')}`);\n}\nreturn [{ json: body }];"
+      },
+      "id": "2",
+      "name": "Validate Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ci_pipeline_runs (job_name, build_number, status, build_url, git_sha, image_name, release_tag, started_at, finished_at, duration_ms, published_tags, payload, created_at, updated_at)\nVALUES (\n  {{$json.job_name}},\n  {{$json.build_number}},\n  {{$json.status}},\n  {{$json.build_url || null}},\n  {{$json.git_sha || null}},\n  {{$json.image_name || null}},\n  {{$json.release_tag || null}},\n  {{$json.started_at || null}},\n  {{$json.finished_at || null}},\n  {{$json.duration_ms || null}},\n  {{JSON.stringify($json.published_tags || [])}}::jsonb,\n  {{JSON.stringify($json)}}::jsonb,\n  NOW(),\n  NOW()\n)\nON CONFLICT (job_name, build_number)\nDO UPDATE SET\n  status = EXCLUDED.status,\n  build_url = EXCLUDED.build_url,\n  git_sha = EXCLUDED.git_sha,\n  image_name = EXCLUDED.image_name,\n  release_tag = EXCLUDED.release_tag,\n  started_at = EXCLUDED.started_at,\n  finished_at = EXCLUDED.finished_at,\n  duration_ms = EXCLUDED.duration_ms,\n  published_tags = EXCLUDED.published_tags,\n  payload = EXCLUDED.payload,\n  updated_at = NOW()\nRETURNING id, job_name, build_number, status, created_at, updated_at;"
+      },
+      "id": "3",
+      "name": "Postgres Upsert",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$env.N8N_ALERT_EMAIL_TO || 'ops@example.com'}}",
+        "subject": "=[CI] {{$json.job_name}} #{{$json.build_number}} {{$json.status}}",
+        "emailType": "text",
+        "message": "=Job: {{$json.job_name}}\nBuild: {{$json.build_number}}\nStatus: {{$json.status}}\nURL: {{$json.build_url || 'n/a'}}\nTags: {{($json.published_tags || []).join(', ')}}"
+      },
+      "id": "4",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        950,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  ok: true,\n  message: 'event processed',\n  job_name: $json.job_name,\n  build_number: $json.build_number,\n  status: $json.status\n} }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "5",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1200,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Payload": {
+      "main": [
+        [
+          {
+            "node": "Postgres Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Upsert": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1"
+}
