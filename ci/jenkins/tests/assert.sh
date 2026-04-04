@@ -26,7 +26,7 @@ assert_file_contains() {
         fail "File does not exist: $file_path"
     fi
 
-    if ! grep -Fq "$expected_text" "$file_path"; then
+    if ! grep -Fq -- "$expected_text" "$file_path"; then
         fail "Expected '$expected_text' in $file_path"
     fi
 }

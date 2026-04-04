@@ -28,9 +28,12 @@ assert_file_contains "$JENKINSFILE" "ci/jenkins/scripts/create_github_release.sh
 assert_file_contains "$JENKINSFILE" "ci/jenkins/scripts/notify_n8n.sh"
 
 assert_file_contains "$JENKINSFILE" "DOCKERHUB_REPO"
+assert_file_contains "$JENKINSFILE" "ericrocha97/bluefin-cosmic-dx"
 assert_file_contains "$JENKINSFILE" "credentialsId: 'dockerhub-creds'"
 assert_file_contains "$JENKINSFILE" "docker login -u \"\$DOCKERHUB_USERNAME\" --password-stdin"
-assert_file_contains "$JENKINSFILE" "docker build -f Containerfile -t \"\$IMAGE_NAME:\${short_date}\" ."
+assert_file_contains "$JENKINSFILE" "docker build --pull -f Containerfile"
+assert_file_contains "$JENKINSFILE" "--build-arg RELEASE_TAG=\"v\${short_date}\""
+assert_file_contains "$JENKINSFILE" "-t \"\$IMAGE_NAME:\${short_date}\" ."
 assert_file_contains "$JENKINSFILE" "short_date=\"\${SHORT_DATE:-}\""
 assert_file_contains "$JENKINSFILE" "if [[ -z \"\$short_date\" && -f ci/jenkins/build/short_date ]]; then"
 assert_file_contains "$JENKINSFILE" "release_tag=\"\${RELEASE_TAG:-}\""
