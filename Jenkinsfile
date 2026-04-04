@@ -11,8 +11,8 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = 'ericrocha/bluefin-cosmic-dx'
-        DOCKERHUB_REPO = 'ericrocha/bluefin-cosmic-dx'
+        IMAGE_NAME = 'ericrocha97/bluefin-cosmic-dx'
+        DOCKERHUB_REPO = 'ericrocha97/bluefin-cosmic-dx'
         VERSION_DATE = ''
         SHORT_DATE = ''
         RELEASE_TAG = ''
