@@ -21,7 +21,7 @@ Configure these credentials in Jenkins before running the pipeline:
    - URL for n8n Webhook Trigger endpoint.
    - Required by `ci/jenkins/scripts/notify_n8n.sh` when `DRY_RUN` is not `true`.
 3. `GITHUB_TOKEN` (Secret text, recommended)
-   - Required for `gh release` commands in the release stage.
+   - Required for `gh release` commands in the release stage unless `gh` auth is already preconfigured on the Jenkins agent.
    - Scope must allow creating/editing releases and uploading artifacts.
 
 ## n8n Setup
@@ -35,6 +35,8 @@ Configure these credentials in Jenkins before running the pipeline:
    - Set `N8N_ALERT_EMAIL_TO` if you want a non-default recipient.
 4. Activate the workflow after credential binding.
 5. Set or expose webhook endpoint to Jenkins as `WEBHOOK_URL`.
+   - For the provided blueprint, the endpoint shape is `/webhook/jenkins-build-events`.
+   - Minimum payload fields expected by validation are `job_name`, `build_number`, and `status`.
 
 ## Postgres Setup
 
@@ -61,15 +63,17 @@ Run this checklist after initial setup or infra changes:
 1. Validate local scripts and fixtures:
    - `bash ci/jenkins/tests/run-all.sh`
 2. Validate shell scripts:
-   - `shellcheck ci/jenkins/scripts/*.sh ci/jenkins/tests/*.sh`
+    - `shellcheck ci/jenkins/scripts/*.sh ci/jenkins/tests/*.sh`
 3. Validate Justfile syntax:
-   - `just --list`
-4. Trigger a Jenkins build manually.
-5. Confirm Docker Hub tags are published (`stable`, date tags).
-6. Confirm GitHub Release was created/updated and manifest uploaded.
-7. Confirm n8n execution succeeded for webhook request.
-8. Confirm Postgres row upserted in `ci_pipeline_runs`.
-9. Confirm email alert was received.
+    - `just --list`
+4. Verify GitHub CLI auth on the Jenkins runtime user:
+   - `gh auth status`
+5. Trigger a Jenkins build manually.
+6. Confirm Docker Hub tags are published (`stable`, date tags).
+7. Confirm GitHub Release was created/updated and manifest uploaded.
+8. Confirm n8n execution succeeded for webhook request.
+9. Confirm Postgres row upserted in `ci_pipeline_runs`.
+10. Confirm email alert was received.
 
 ## Operations Notes
 
