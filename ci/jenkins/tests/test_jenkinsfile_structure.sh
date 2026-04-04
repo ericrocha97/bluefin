@@ -30,6 +30,7 @@ assert_file_contains "$JENKINSFILE" "ci/jenkins/scripts/notify_n8n.sh"
 assert_file_contains "$JENKINSFILE" "DOCKERHUB_REPO"
 assert_file_contains "$JENKINSFILE" "credentialsId: 'dockerhub-creds'"
 assert_file_contains "$JENKINSFILE" "docker login -u \"\$DOCKERHUB_USERNAME\" --password-stdin"
+assert_file_contains "$JENKINSFILE" "docker build -f Containerfile -t \"\$IMAGE_NAME:\${short_date}\" ."
 
 assert_file_contains "$JENKINSFILE" "rpm -qa --queryformat '%{NAME}\\t%{VERSION}-%{RELEASE}\\n'"
 assert_file_contains "$JENKINSFILE" "gh release list --limit 100 --json tagName --jq '.[] | .tagName'"
