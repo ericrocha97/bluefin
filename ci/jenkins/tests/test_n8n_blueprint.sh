@@ -92,5 +92,32 @@ if "{{$json." in query:
     )
     sys.exit(1)
 
+validate_node = next(
+    (node for node in nodes if isinstance(node, dict) and node.get("name") == "Validate Payload"),
+    None,
+)
+if validate_node is None:
+    print("ASSERTION FAILED: missing Validate Payload node", file=sys.stderr)
+    sys.exit(1)
+
+validate_params = validate_node.get("parameters", {})
+validate_code = validate_params.get("jsCode") if isinstance(validate_params, dict) else None
+if not isinstance(validate_code, str):
+    print("ASSERTION FAILED: Validate Payload jsCode must be a string", file=sys.stderr)
+    sys.exit(1)
+
+required_validate_patterns = [
+    "x-jenkins-webhook-token",
+    "N8N_WEBHOOK_SHARED_TOKEN",
+]
+
+for pattern in required_validate_patterns:
+    if pattern not in validate_code:
+        print(
+            f"ASSERTION FAILED: Validate Payload jsCode missing pattern '{pattern}'",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
 print("PASS: test_n8n_blueprint.sh")
 PY

@@ -175,7 +175,9 @@ export STARTED_AT="$BUILD_STARTED_AT"
 export FINISHED_AT="$finished_at"
 export DURATION_MS="$duration_ms"
 export RELEASE_TAG="$RELEASE_TAG"
-bash ci/jenkins/scripts/notify_n8n.sh
+if ! bash ci/jenkins/scripts/notify_n8n.sh; then
+  echo "WARN: notify_n8n.sh failed in post-success hook (best-effort notification)." >&2
+fi
 '''
         }
         failure {
@@ -202,7 +204,9 @@ export STARTED_AT="$started_at"
 export FINISHED_AT="$finished_at"
 export DURATION_MS="$duration_ms"
 export RELEASE_TAG="${RELEASE_TAG:-unknown}"
-bash ci/jenkins/scripts/notify_n8n.sh
+if ! bash ci/jenkins/scripts/notify_n8n.sh; then
+  echo "WARN: notify_n8n.sh failed in post-failure hook (best-effort notification)." >&2
+fi
 '''
         }
         always {

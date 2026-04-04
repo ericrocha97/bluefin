@@ -20,7 +20,10 @@ Configure these credentials in Jenkins before running the pipeline:
 2. `WEBHOOK_URL` (Secret text or environment injected by your Jenkins config)
    - URL for n8n Webhook Trigger endpoint.
    - Required by `ci/jenkins/scripts/notify_n8n.sh` when `DRY_RUN` is not `true`.
-3. `GITHUB_TOKEN` (Secret text, recommended)
+3. `N8N_WEBHOOK_SHARED_TOKEN` (Secret text)
+   - Shared secret sent in header `x-jenkins-webhook-token`.
+   - Must match the n8n environment value used by the `Validate Payload` node.
+4. `GITHUB_TOKEN` (Secret text, recommended)
    - Required for `gh release` commands in the release stage unless `gh` auth is already preconfigured on the Jenkins agent.
    - Scope must allow creating/editing releases and uploading artifacts.
 
@@ -35,8 +38,10 @@ Configure these credentials in Jenkins before running the pipeline:
    - Set `N8N_ALERT_EMAIL_TO` if you want a non-default recipient.
 4. Activate the workflow after credential binding.
 5. Set or expose webhook endpoint to Jenkins as `WEBHOOK_URL`.
-   - For the provided blueprint, the endpoint shape is `/webhook/jenkins-build-events`.
-   - Minimum payload fields expected by validation are `job_name`, `build_number`, and `status`.
+    - For the provided blueprint, the endpoint shape is `/webhook/jenkins-build-events`.
+    - Minimum payload fields expected by validation are `job_name`, `build_number`, and `status`.
+6. Set n8n env var `N8N_WEBHOOK_SHARED_TOKEN`.
+    - Incoming webhook requests are rejected when header `x-jenkins-webhook-token` is missing or does not match.
 
 ## Postgres Setup
 
@@ -78,5 +83,6 @@ Run this checklist after initial setup or infra changes:
 ## Operations Notes
 
 - For dry runs of webhook payload generation, set `DRY_RUN=true` when invoking `ci/jenkins/scripts/notify_n8n.sh`.
+- Jenkins notification to n8n is best-effort in `post` hooks: notify failures are logged but do not fail the overall pipeline result.
 - If release creation fails, verify `gh` auth and repository permissions for the Jenkins runtime user.
 - If n8n rejects payloads, inspect required fields in the `Validate Payload` node.

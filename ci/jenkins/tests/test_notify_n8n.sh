@@ -34,6 +34,7 @@ base_env
 export OUTPUT_PAYLOAD_FILE="$TMPDIR/payload.json"
 export DRY_RUN="true"
 export WEBHOOK_URL="https://n8n.example/webhook/build"
+export N8N_WEBHOOK_SHARED_TOKEN="test-shared-token"
 dry_run_output="$(bash "$SCRIPT_PATH")"
 
 assert_file_contains "$OUTPUT_PAYLOAD_FILE" '"status":"success"'
@@ -66,6 +67,12 @@ bash "$SCRIPT_PATH"
 
 assert_file_contains "$CURL_ARGS_FILE" 'request POST'
 assert_file_contains "$CURL_ARGS_FILE" 'header Content-Type: application/json'
+assert_file_contains "$CURL_ARGS_FILE" 'header x-jenkins-webhook-token: test-shared-token'
+assert_file_contains "$CURL_ARGS_FILE" 'connect-timeout 5'
+assert_file_contains "$CURL_ARGS_FILE" 'max-time 30'
+assert_file_contains "$CURL_ARGS_FILE" 'retry 3'
+assert_file_contains "$CURL_ARGS_FILE" 'retry-delay 2'
+assert_file_contains "$CURL_ARGS_FILE" 'retry-all-errors'
 assert_file_contains "$CURL_ARGS_FILE" 'url https://n8n.example/webhook/build'
 assert_file_contains "$CURL_BODY_FILE" '"git_sha":"0123456789abcdef"'
 assert_file_contains "$CURL_BODY_FILE" '"image_name":"ghcr.io/example/bluefin-cosmic-dx"'
@@ -74,6 +81,12 @@ assert_file_contains "$CURL_BODY_FILE" '"timestamp_utc":"2026-04-03T13:30:00Z"'
 unset WEBHOOK_URL
 if bash "$SCRIPT_PATH" >/dev/null 2>&1; then
     fail "Script should fail when WEBHOOK_URL is missing and DRY_RUN is false"
+fi
+
+export WEBHOOK_URL="https://n8n.example/webhook/build"
+unset N8N_WEBHOOK_SHARED_TOKEN
+if bash "$SCRIPT_PATH" >/dev/null 2>&1; then
+    fail "Script should fail when N8N_WEBHOOK_SHARED_TOKEN is missing and DRY_RUN is false"
 fi
 
 printf 'PASS: test_notify_n8n.sh\n'
