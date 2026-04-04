@@ -71,5 +71,26 @@ for edge in required_edges:
         )
         sys.exit(1)
 
+postgres_node = next(
+    (node for node in nodes if isinstance(node, dict) and node.get("name") == "Postgres Upsert"),
+    None,
+)
+if postgres_node is None:
+    print("ASSERTION FAILED: missing Postgres Upsert node", file=sys.stderr)
+    sys.exit(1)
+
+params = postgres_node.get("parameters", {})
+query = params.get("query") if isinstance(params, dict) else None
+if not isinstance(query, str):
+    print("ASSERTION FAILED: Postgres Upsert query must be a string", file=sys.stderr)
+    sys.exit(1)
+
+if "{{$json." in query:
+    print(
+        "ASSERTION FAILED: Postgres Upsert query contains unsafe interpolation pattern '{{$json.'",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
 print("PASS: test_n8n_blueprint.sh")
 PY

@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $json.body ?? $json;\nconst required = ['job_name', 'build_number', 'status'];\nconst missing = required.filter((key) => body[key] === undefined || body[key] === null || body[key] === '');\nif (missing.length > 0) {\n  throw new Error(`Missing required fields: ${missing.join(', ')}`);\n}\nreturn [{ json: body }];"
+        "jsCode": "const body = $json.body ?? $json;\nconst required = ['job_name', 'build_number', 'status'];\nconst missing = required.filter((key) => body[key] === undefined || body[key] === null || body[key] === '');\nif (missing.length > 0) {\n  throw new Error(`Missing required fields: ${missing.join(', ')}`);\n}\nconst buildNumber = Number(body.build_number);\nif (!Number.isInteger(buildNumber) || buildNumber < 0) {\n  throw new Error('Invalid build_number: must be a non-negative integer');\n}\nif (typeof body.status !== 'string' || body.status.trim().length === 0) {\n  throw new Error('Invalid status: must be a non-empty string');\n}\nconst durationRaw = body.duration_ms;\nconst durationMs = durationRaw === undefined || durationRaw === null || durationRaw === '' ? null : Number(durationRaw);\nif (durationMs !== null && !Number.isFinite(durationMs)) {\n  throw new Error('Invalid duration_ms: must be numeric when provided');\n}\nreturn [{\n  json: {\n    ...body,\n    build_number: buildNumber,\n    status: body.status.trim(),\n    duration_ms: durationMs,\n  },\n}];"
       },
       "id": "2",
       "name": "Validate Payload",
@@ -33,7 +33,10 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO ci_pipeline_runs (job_name, build_number, status, build_url, git_sha, image_name, release_tag, started_at, finished_at, duration_ms, published_tags, payload, created_at, updated_at)\nVALUES (\n  {{$json.job_name}},\n  {{$json.build_number}},\n  {{$json.status}},\n  {{$json.build_url || null}},\n  {{$json.git_sha || null}},\n  {{$json.image_name || null}},\n  {{$json.release_tag || null}},\n  {{$json.started_at || null}},\n  {{$json.finished_at || null}},\n  {{$json.duration_ms || null}},\n  {{JSON.stringify($json.published_tags || [])}}::jsonb,\n  {{JSON.stringify($json)}}::jsonb,\n  NOW(),\n  NOW()\n)\nON CONFLICT (job_name, build_number)\nDO UPDATE SET\n  status = EXCLUDED.status,\n  build_url = EXCLUDED.build_url,\n  git_sha = EXCLUDED.git_sha,\n  image_name = EXCLUDED.image_name,\n  release_tag = EXCLUDED.release_tag,\n  started_at = EXCLUDED.started_at,\n  finished_at = EXCLUDED.finished_at,\n  duration_ms = EXCLUDED.duration_ms,\n  published_tags = EXCLUDED.published_tags,\n  payload = EXCLUDED.payload,\n  updated_at = NOW()\nRETURNING id, job_name, build_number, status, created_at, updated_at;"
+        "query": "INSERT INTO ci_pipeline_runs (job_name, build_number, status, build_url, git_sha, image_name, release_tag, started_at, finished_at, duration_ms, published_tags, payload, created_at, updated_at)\nVALUES (\n  $1,\n  $2,\n  $3,\n  $4,\n  $5,\n  $6,\n  $7,\n  $8,\n  $9,\n  $10,\n  $11::jsonb,\n  $12::jsonb,\n  NOW(),\n  NOW()\n)\nON CONFLICT (job_name, build_number)\nDO UPDATE SET\n  status = EXCLUDED.status,\n  build_url = EXCLUDED.build_url,\n  git_sha = EXCLUDED.git_sha,\n  image_name = EXCLUDED.image_name,\n  release_tag = EXCLUDED.release_tag,\n  started_at = EXCLUDED.started_at,\n  finished_at = EXCLUDED.finished_at,\n  duration_ms = EXCLUDED.duration_ms,\n  published_tags = EXCLUDED.published_tags,\n  payload = EXCLUDED.payload,\n  updated_at = NOW()\nRETURNING id, job_name, build_number, status, created_at, updated_at;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.job_name,\n  $json.build_number,\n  $json.status,\n  $json.build_url ?? null,\n  $json.git_sha ?? null,\n  $json.image_name ?? null,\n  $json.release_tag ?? null,\n  $json.started_at ?? null,\n  $json.finished_at ?? null,\n  $json.duration_ms ?? null,\n  JSON.stringify($json.published_tags ?? []),\n  JSON.stringify($json),\n] }}"
+        }
       },
       "id": "3",
       "name": "Postgres Upsert",
