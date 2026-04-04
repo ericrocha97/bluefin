@@ -51,8 +51,8 @@ bash ci/jenkins/scripts/generate_metadata.sh
 
 docker build -f Containerfile -t "$IMAGE_NAME:${short_date}" .
 
-docker run --rm "$IMAGE_NAME:${short_date}" sh -c "rpm -qa --queryformat '%{NAME}\t%{VERSION}-%{RELEASE}\n' | sort" > "$MANIFEST_FILE"
-docker run --rm "$IMAGE_NAME:${short_date}" sh -c "awk -F= '\$1==\"VERSION_ID\" {gsub(/\"/,\"\",\$2); print \$2}' /usr/lib/os-release" > ci/jenkins/build/bluefin_version
+docker run --rm "$IMAGE_NAME:${short_date}" rpm -qa --queryformat '%{NAME}\t%{VERSION}-%{RELEASE}\n' | sort > "$MANIFEST_FILE"
+docker run --rm "$IMAGE_NAME:${short_date}" awk -F= '$1=="VERSION_ID" {gsub(/"/,"",$2); print $2}' /usr/lib/os-release > ci/jenkins/build/bluefin_version
 
 rm -f ci/jenkins/build/previous-manifest.txt
 RELEASE_TAG="$(<ci/jenkins/build/release_tag)"

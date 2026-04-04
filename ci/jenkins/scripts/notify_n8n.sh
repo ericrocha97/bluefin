@@ -8,7 +8,7 @@ set -euo pipefail
 : "${BUILD_URL:?BUILD_URL is required}"
 : "${GIT_SHA:?GIT_SHA is required}"
 : "${IMAGE_NAME:?IMAGE_NAME is required}"
-: "${PUBLISHED_TAGS:?PUBLISHED_TAGS is required}"
+: "${PUBLISHED_TAGS:=}"
 : "${TIMESTAMP_UTC:?TIMESTAMP_UTC is required}"
 : "${STARTED_AT:?STARTED_AT is required}"
 : "${FINISHED_AT:?FINISHED_AT is required}"
