@@ -32,8 +32,9 @@ assert_file_contains "$JENKINSFILE" "credentialsId: 'dockerhub-creds'"
 assert_file_contains "$JENKINSFILE" "docker login -u \"\$DOCKERHUB_USERNAME\" --password-stdin"
 
 assert_file_contains "$JENKINSFILE" "rpm -qa --queryformat '%{NAME}\\t%{VERSION}-%{RELEASE}\\n'"
-assert_file_contains "$JENKINSFILE" "gh release view --json tagName --jq '.tagName'"
-assert_file_contains "$JENKINSFILE" "gh release download \"\$latest_release_tag\" --pattern \"\$(basename \"\$MANIFEST_FILE\")\""
+assert_file_contains "$JENKINSFILE" "gh release list --limit 100 --json tagName --jq '.[] | .tagName'"
+assert_file_contains "$JENKINSFILE" "awk -v current=\"\$RELEASE_TAG\" '\$0 != current { print; exit }'"
+assert_file_contains "$JENKINSFILE" "gh release download \"\$previous_release_tag\" --pattern \"\$(basename \"\$MANIFEST_FILE\")\""
 
 assert_file_contains "$JENKINSFILE" "if gh release view \"\$RELEASE_TAG\" >/dev/null 2>&1; then"
 assert_file_contains "$JENKINSFILE" "gh release edit \"\$RELEASE_TAG\" --title \"\$RELEASE_TAG\" --notes-file \"\$RELEASE_BODY_FILE\""

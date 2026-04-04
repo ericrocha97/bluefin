@@ -55,11 +55,12 @@ docker run --rm "$IMAGE_NAME:${short_date}" sh -c "rpm -qa --queryformat '%{NAME
 docker run --rm "$IMAGE_NAME:${short_date}" sh -c "awk -F= '\$1==\"VERSION_ID\" {gsub(/\"/,\"\",\$2); print \$2}' /usr/lib/os-release" > ci/jenkins/build/bluefin_version
 
 rm -f ci/jenkins/build/previous-manifest.txt
-latest_release_tag="$(gh release view --json tagName --jq '.tagName' 2>/dev/null || true)"
-if [[ -n "$latest_release_tag" ]]; then
+RELEASE_TAG="$(<ci/jenkins/build/release_tag)"
+previous_release_tag="$(gh release list --limit 100 --json tagName --jq '.[] | .tagName' 2>/dev/null | awk -v current="$RELEASE_TAG" '$0 != current { print; exit }' || true)"
+if [[ -n "$previous_release_tag" ]]; then
   previous_manifest_dir="ci/jenkins/build/previous-manifest"
   mkdir -p "$previous_manifest_dir"
-  if gh release download "$latest_release_tag" --pattern "$(basename "$MANIFEST_FILE")" --dir "$previous_manifest_dir" --clobber >/dev/null 2>&1; then
+  if gh release download "$previous_release_tag" --pattern "$(basename "$MANIFEST_FILE")" --dir "$previous_manifest_dir" --clobber >/dev/null 2>&1; then
     downloaded_manifest="$previous_manifest_dir/$(basename "$MANIFEST_FILE")"
     if [[ -f "$downloaded_manifest" ]]; then
       cp "$downloaded_manifest" ci/jenkins/build/previous-manifest.txt
