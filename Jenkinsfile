@@ -49,10 +49,22 @@ export TAGS_FILE="$TAGS_FILE"
 export LABELS_FILE="$LABELS_FILE"
 bash ci/jenkins/scripts/generate_metadata.sh
 
-if [[ -f /usr/share/bluefin-cosmic-dx/manifest.txt ]]; then
-  cp /usr/share/bluefin-cosmic-dx/manifest.txt "$MANIFEST_FILE"
-else
-  : > "$MANIFEST_FILE"
+docker build -t "$IMAGE_NAME:${short_date}" .
+
+docker run --rm "$IMAGE_NAME:${short_date}" sh -c "rpm -qa --queryformat '%{NAME}\t%{VERSION}-%{RELEASE}\n' | sort" > "$MANIFEST_FILE"
+docker run --rm "$IMAGE_NAME:${short_date}" sh -c "awk -F= '\$1==\"VERSION_ID\" {gsub(/\"/,\"\",\$2); print \$2}' /usr/lib/os-release" > ci/jenkins/build/bluefin_version
+
+rm -f ci/jenkins/build/previous-manifest.txt
+latest_release_tag="$(gh release view --json tagName --jq '.tagName' 2>/dev/null || true)"
+if [[ -n "$latest_release_tag" ]]; then
+  previous_manifest_dir="ci/jenkins/build/previous-manifest"
+  mkdir -p "$previous_manifest_dir"
+  if gh release download "$latest_release_tag" --pattern "$(basename "$MANIFEST_FILE")" --dir "$previous_manifest_dir" --clobber >/dev/null 2>&1; then
+    downloaded_manifest="$previous_manifest_dir/$(basename "$MANIFEST_FILE")"
+    if [[ -f "$downloaded_manifest" ]]; then
+      cp "$downloaded_manifest" ci/jenkins/build/previous-manifest.txt
+    fi
+  fi
 fi
 
 export CURRENT_MANIFEST="$MANIFEST_FILE"
@@ -61,8 +73,6 @@ if [[ -f ci/jenkins/build/previous-manifest.txt ]]; then
 fi
 export OUTPUT_FILE="$OUTPUT_FILE"
 bash ci/jenkins/scripts/extract_versions.sh
-
-docker build -t "$IMAGE_NAME:${short_date}" .
 '''
                 script {
                     env.BUILD_STARTED_AT = readFile('ci/jenkins/build/started_at').trim()
@@ -75,8 +85,11 @@ docker build -t "$IMAGE_NAME:${short_date}" .
 
         stage('Push Docker Hub') {
             steps {
-                sh '''#!/usr/bin/env bash
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_TOKEN')]) {
+                    sh '''#!/usr/bin/env bash
 set -euo pipefail
+
+printf '%s' "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
 
 mapfile -t tags < "$TAGS_FILE"
 for tag in "${tags[@]}"; do
@@ -84,7 +97,10 @@ for tag in "${tags[@]}"; do
   docker tag "$IMAGE_NAME:${SHORT_DATE}" "$DOCKERHUB_REPO:${tag}"
   docker push "$DOCKERHUB_REPO:${tag}"
 done
+
+docker logout
 '''
+                }
             }
         }
 
@@ -94,8 +110,8 @@ done
 set -euo pipefail
 
 bluefin_version="unknown"
-if [[ -f /usr/lib/os-release ]]; then
-  bluefin_version="$(awk -F= '$1==\"VERSION_ID\" {gsub(/\"/,\"\",$2); print $2}' /usr/lib/os-release)"
+if [[ -f ci/jenkins/build/bluefin_version ]]; then
+  bluefin_version="$(<ci/jenkins/build/bluefin_version)"
 fi
 
 kernel_version="$(awk -F= '$1=="kernel_version" {print $2}' "$OUTPUT_FILE")"
@@ -119,7 +135,15 @@ export CHANGELOG="${changelog:-- No tracked package version changes detected.}"
 export DOCKERHUB_REPO="$DOCKERHUB_REPO"
 export RELEASE_BODY_FILE="$RELEASE_BODY_FILE"
 export MANIFEST_FILE="$MANIFEST_FILE"
-bash ci/jenkins/scripts/create_github_release.sh
+bash ci/jenkins/scripts/create_github_release.sh --render-only
+
+if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+  gh release edit "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file "$RELEASE_BODY_FILE"
+else
+  gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file "$RELEASE_BODY_FILE"
+fi
+
+gh release upload "$RELEASE_TAG" "$MANIFEST_FILE" --clobber
 '''
             }
         }
