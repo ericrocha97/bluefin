@@ -32,7 +32,8 @@ pipeline {
     stages {
         stage('Build Image') {
             steps {
-                sh '''#!/usr/bin/env bash
+                withCredentials([string(credentialsId: 'github-token', variable: 'GH_TOKEN')]) {
+                    sh '''#!/usr/bin/env bash
 set -euo pipefail
 
 mkdir -p ci/jenkins/build
@@ -62,7 +63,13 @@ echo "v${short_date}" > ci/jenkins/build/release_tag
 docker build --pull -f Containerfile --build-arg RELEASE_TAG="v${short_date}" "${labels_args[@]}" -t "$IMAGE_REPOSITORY:${short_date}" .
 
 docker run --rm "$IMAGE_REPOSITORY:${short_date}" rpm -qa --queryformat '%{NAME}\t%{VERSION}-%{RELEASE}\n' | sort > "$MANIFEST_FILE"
-docker run --rm "$IMAGE_REPOSITORY:${short_date}" awk -F= '$1=="VERSION_ID" {gsub(/"/,"",$2); print $2}' /usr/lib/os-release > ci/jenkins/build/bluefin_version
+docker run --rm "$IMAGE_REPOSITORY:${short_date}" awk -F= '$1=="IMAGE_VERSION" {gsub(/"/,"",$2); print $2; exit}' /etc/os-release > ci/jenkins/build/bluefin_version
+if [[ ! -s ci/jenkins/build/bluefin_version ]]; then
+  docker run --rm "$IMAGE_REPOSITORY:${short_date}" awk -F= '$1=="VERSION_ID" {gsub(/"/,"",$2); print $2; exit}' /etc/os-release > ci/jenkins/build/bluefin_version
+fi
+if [[ ! -s ci/jenkins/build/bluefin_version ]]; then
+  printf 'unknown\n' > ci/jenkins/build/bluefin_version
+fi
 
 rm -f ci/jenkins/build/previous-manifest.txt
 RELEASE_TAG="$(<ci/jenkins/build/release_tag)"
@@ -85,6 +92,7 @@ fi
 export OUTPUT_FILE="$OUTPUT_FILE"
 bash ci/jenkins/scripts/extract_versions.sh
 '''
+                }
                 script {
                     env.BUILD_STARTED_AT = readFile('ci/jenkins/build/started_at').trim()
                     env.BUILD_DATE = readFile('ci/jenkins/build/build_date').trim()
@@ -132,7 +140,8 @@ done
                 expression { env.BRANCH_NAME == env.DEFAULT_BRANCH }
             }
             steps {
-                sh '''#!/usr/bin/env bash
+                withCredentials([string(credentialsId: 'github-token', variable: 'GH_TOKEN')]) {
+                    sh '''#!/usr/bin/env bash
 set -euo pipefail
 
 short_date="${SHORT_DATE:-}"
@@ -184,6 +193,7 @@ fi
 
 gh release upload "$release_tag" "$MANIFEST_FILE" --clobber
 '''
+                }
             }
         }
     }

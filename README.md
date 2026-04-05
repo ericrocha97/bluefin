@@ -154,6 +154,16 @@ sudo bootc switch ghcr.io/ublue-os/bluefin-dx:stable
 sudo systemctl reboot
 ```
 
+## Optional: Enable Image Signing
+
+Image signing is optional. The repository includes Cosign signing steps in `.github/workflows/build.yml`, but they only work when `SIGNING_SECRET` is configured.
+
+- Generate keys with `cosign generate-key-pair`
+- Add private key content as repository secret `SIGNING_SECRET`
+- Keep `cosign.key` private (never commit); only `cosign.pub` may be committed
+
+If you do not want signing in GitHub Actions, comment out the Cosign steps in `.github/workflows/build.yml`.
+
 ## Choosing Desktop at Login
 
 At the GDM login screen, click the **⚙️ gear icon** to select:
