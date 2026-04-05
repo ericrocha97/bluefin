@@ -39,7 +39,7 @@ export WARP_VERSION="0.2024.08.14.08.02.stable_00-1"
 export VICINAE_VERSION="0.5.2-1"
 export COSMIC_SESSION_VERSION="1.0.0~alpha.7-1"
 export CHANGELOG=$'- code-insiders: 1.91.0 -> 1.92.0\n- warp-terminal: 0.2024.08.01 -> 0.2024.08.14'
-export DOCKERHUB_REPO="ericrocha97/bluefin-cosmic-dx"
+export IMAGE_PACKAGE_URL="https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx"
 export RELEASE_BODY_FILE
 export MANIFEST_FILE
 
@@ -57,7 +57,7 @@ assert_file_contains "$RELEASE_BODY_FILE" "| COSMIC Session | 1.0.0~alpha.7-1 |"
 assert_file_contains "$RELEASE_BODY_FILE" "## Changes Since Previous Release"
 assert_file_contains "$RELEASE_BODY_FILE" "code-insiders: 1.91.0 -> 1.92.0"
 assert_file_contains "$RELEASE_BODY_FILE" "warp-terminal: 0.2024.08.01 -> 0.2024.08.14"
-assert_file_contains "$RELEASE_BODY_FILE" "[View on Docker Hub](https://hub.docker.com/r/ericrocha97/bluefin-cosmic-dx)"
+assert_file_contains "$RELEASE_BODY_FILE" "[View on GitHub Container Registry](https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx)"
 
 if [[ -f "$GH_CALLS_FILE" ]]; then
     fail "Render-only mode should not invoke gh"

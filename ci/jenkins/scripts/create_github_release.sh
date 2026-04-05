@@ -18,7 +18,7 @@ fi
 : "${VICINAE_VERSION:?VICINAE_VERSION is required}"
 : "${COSMIC_SESSION_VERSION:?COSMIC_SESSION_VERSION is required}"
 : "${CHANGELOG:?CHANGELOG is required}"
-: "${DOCKERHUB_REPO:?DOCKERHUB_REPO is required}"
+: "${IMAGE_PACKAGE_URL:?IMAGE_PACKAGE_URL is required}"
 : "${RELEASE_BODY_FILE:?RELEASE_BODY_FILE is required}"
 : "${MANIFEST_FILE:?MANIFEST_FILE is required}"
 
@@ -43,7 +43,7 @@ cat >"$RELEASE_BODY_FILE" <<EOF
 
 ${CHANGELOG}
 
-[View on Docker Hub](https://hub.docker.com/r/${DOCKERHUB_REPO})
+[View on GitHub Container Registry](${IMAGE_PACKAGE_URL})
 EOF
 
 if [[ "$render_only" == "true" ]]; then

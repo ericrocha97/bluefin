@@ -3,7 +3,7 @@
 Este guia mostra, do zero, como configurar o Jenkins para rodar o `Jenkinsfile` deste repositório e fazer:
 
 1. build da imagem
-2. push no Docker Hub
+2. push no GHCR
 3. criação/atualização de release no GitHub
 4. envio de evento para n8n
 5. persistência no PostgreSQL + notificação por e-mail via n8n
@@ -13,7 +13,7 @@ Este guia mostra, do zero, como configurar o Jenkins para rodar o `Jenkinsfile` 
 O pipeline definido em `Jenkinsfile` executa este fluxo:
 
 - `Build Image`: build da imagem e geração de `manifest.txt` + metadados.
-- `Push Docker Hub`: autentica no Docker Hub e publica as tags.
+- `Push GHCR`: autentica no GHCR e publica as tags.
 - `Create GitHub Release`: cria/atualiza release e anexa `manifest.txt`.
 - `post { success/failure }`: envia payload para n8n usando `ci/jenkins/scripts/notify_n8n.sh`.
 
@@ -27,7 +27,7 @@ No host/agent onde o job vai rodar, você precisa de:
 - `gh` (GitHub CLI)
 - `bash`, `awk`, `coreutils`
 - acesso de rede para:
-  - `docker.io`
+  - `ghcr.io`
   - `api.github.com`
   - URL do n8n
 
@@ -59,28 +59,28 @@ Mínimo para este fluxo:
 
 Abra: `Manage Jenkins` -> `Credentials` -> `(global)` -> `Add Credentials`
 
-### 4.1 Docker Hub
+### 4.1 GHCR
 
 - **Kind:** `Username with password`
-- **ID:** `dockerhub-creds`
-- **Username:** usuário/robô Docker Hub
-- **Password:** Docker Hub Access Token
+- **ID:** `ghcr-creds`
+- **Username:** usuário GitHub (ou machine user)
+- **Password:** GitHub token com escopo para publicar pacotes (ex.: `write:packages`)
 
-### 4.2 Segredos em variável de ambiente (para este Jenkinsfile)
+### 4.2 Segredos via Credentials Binding (recomendado)
 
-O `Jenkinsfile` atual espera as variáveis abaixo no ambiente do job/agent:
+Para evitar segredos globais em texto claro, use credenciais por job e injete via `withCredentials`:
 
-- `GH_TOKEN` (ou `GITHUB_TOKEN`) para comandos `gh`
-- `WEBHOOK_URL` (URL de produção do webhook n8n)
-- `N8N_WEBHOOK_SHARED_TOKEN` (token compartilhado do header)
+- `github-token` (Secret text): token para `gh release ...`
+- `n8n-webhook-url` (Secret text): URL de produção do webhook n8n
+- `n8n-webhook-token` (Secret text): token compartilhado do header
 
-Forma mais simples:
+No Pipeline job, use um bloco `withCredentials` para exportar:
 
-`Manage Jenkins` -> `System` -> `Global properties` -> marque `Environment variables` e adicione:
+- `GH_TOKEN`
+- `WEBHOOK_URL`
+- `N8N_WEBHOOK_SHARED_TOKEN`
 
-- `GH_TOKEN=<seu_token_github>`
-- `WEBHOOK_URL=https://SEU_N8N/webhook/jenkins-build-events`
-- `N8N_WEBHOOK_SHARED_TOKEN=<token_forte>`
+Observação: o `Jenkinsfile` deste repositório já usa Credentials Binding para autenticação no registro (`ghcr-creds`).
 
 Observação: para release automation, o token GitHub precisa de permissão para releases no repositório.
 
@@ -156,11 +156,11 @@ Você também pode executar manualmente com `Build Now`.
 1. Rodar `Build Now`.
 2. Verificar no log do Jenkins:
    - build da imagem
-   - login/push no Docker Hub
+   - login/push no GHCR
    - `gh release view/edit/create/upload`
    - warning/ok no notify para n8n
 3. Verificar resultados externos:
-   - Docker Hub recebeu tags (`stable`, `stable.YYYYMMDD`, `YYYYMMDD`)
+   - GHCR recebeu tags (`stable`, `stable.YYYYMMDD`, `YYYYMMDD`)
    - release no GitHub foi criada/atualizada
    - n8n recebeu execução
    - PostgreSQL recebeu upsert
@@ -168,10 +168,10 @@ Você também pode executar manualmente com `Build Now`.
 
 ## 10) Troubleshooting rápido
 
-### Erro no push Docker Hub
+### Erro no push GHCR
 
 - Mensagem comum: `unauthorized`
-- Verifique credencial `dockerhub-creds` e token do Docker Hub.
+- Verifique credencial `ghcr-creds` e permissões do token para `ghcr.io`.
 
 ### Erro nos comandos `gh`
 
@@ -202,7 +202,7 @@ Você também pode executar manualmente com `Build Now`.
 - `N8N_NOTIFY_RETRY_COUNT` (default `3`)
 - `N8N_NOTIFY_RETRY_DELAY_SECONDS` (default `2`)
 
-Exemplo (Global properties):
+Exemplo (variáveis não sensíveis no job/agent):
 
 - `N8N_NOTIFY_CONNECT_TIMEOUT_SECONDS=5`
 - `N8N_NOTIFY_MAX_TIME_SECONDS=20`

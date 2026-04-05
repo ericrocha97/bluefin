@@ -11,8 +11,12 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = 'ericrocha97/bluefin-cosmic-dx'
-        DOCKERHUB_REPO = 'ericrocha97/bluefin-cosmic-dx'
+        IMAGE_REGISTRY = 'ghcr.io'
+        IMAGE_NAMESPACE = 'ericrocha97'
+        IMAGE_NAME = 'bluefin-cosmic-dx'
+        IMAGE_REPOSITORY = 'ghcr.io/ericrocha97/bluefin-cosmic-dx'
+        IMAGE_PACKAGE_URL = 'https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx'
+        DEFAULT_BRANCH = 'main'
         VERSION_DATE = ''
         SHORT_DATE = ''
         RELEASE_TAG = ''
@@ -42,17 +46,23 @@ echo "${build_date}" > ci/jenkins/build/build_date
 echo "${short_date}" > ci/jenkins/build/short_date
 echo "v${short_date}" > ci/jenkins/build/release_tag
 
-export IMAGE_NAME="$IMAGE_NAME"
-export BUILD_DATE="$build_date"
-export VERSION_DATE="$short_date"
-export TAGS_FILE="$TAGS_FILE"
-export LABELS_FILE="$LABELS_FILE"
-bash ci/jenkins/scripts/generate_metadata.sh
+                export IMAGE_NAME="$IMAGE_NAME"
+                export BUILD_DATE="$build_date"
+                export VERSION_DATE="$short_date"
+                export TAGS_FILE="$TAGS_FILE"
+                export LABELS_FILE="$LABELS_FILE"
+                bash ci/jenkins/scripts/generate_metadata.sh
 
-docker build --pull -f Containerfile --build-arg RELEASE_TAG="v${short_date}" -t "$IMAGE_NAME:${short_date}" .
+                labels_args=()
+                while IFS= read -r label; do
+                    [[ -n "$label" ]] || continue
+                    labels_args+=("--label" "$label")
+                done < "$LABELS_FILE"
 
-docker run --rm "$IMAGE_NAME:${short_date}" rpm -qa --queryformat '%{NAME}\t%{VERSION}-%{RELEASE}\n' | sort > "$MANIFEST_FILE"
-docker run --rm "$IMAGE_NAME:${short_date}" awk -F= '$1=="VERSION_ID" {gsub(/"/,"",$2); print $2}' /usr/lib/os-release > ci/jenkins/build/bluefin_version
+docker build --pull -f Containerfile --build-arg RELEASE_TAG="v${short_date}" "${labels_args[@]}" -t "$IMAGE_REPOSITORY:${short_date}" .
+
+docker run --rm "$IMAGE_REPOSITORY:${short_date}" rpm -qa --queryformat '%{NAME}\t%{VERSION}-%{RELEASE}\n' | sort > "$MANIFEST_FILE"
+docker run --rm "$IMAGE_REPOSITORY:${short_date}" awk -F= '$1=="VERSION_ID" {gsub(/"/,"",$2); print $2}' /usr/lib/os-release > ci/jenkins/build/bluefin_version
 
 rm -f ci/jenkins/build/previous-manifest.txt
 RELEASE_TAG="$(<ci/jenkins/build/release_tag)"
@@ -84,13 +94,16 @@ bash ci/jenkins/scripts/extract_versions.sh
             }
         }
 
-        stage('Push Docker Hub') {
+        stage('Push GHCR') {
+            when {
+                expression { env.BRANCH_NAME == env.DEFAULT_BRANCH }
+            }
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: 'ghcr-creds', usernameVariable: 'GHCR_USERNAME', passwordVariable: 'GHCR_TOKEN')]) {
                     sh '''#!/usr/bin/env bash
 set -euo pipefail
 
-printf '%s' "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+printf '%s' "$GHCR_TOKEN" | docker login "$IMAGE_REGISTRY" -u "$GHCR_USERNAME" --password-stdin
 
 short_date="${SHORT_DATE:-}"
 if [[ -z "$short_date" && -f ci/jenkins/build/short_date ]]; then
@@ -106,8 +119,8 @@ trap cleanup EXIT
 mapfile -t tags < "$TAGS_FILE"
 for tag in "${tags[@]}"; do
   [[ -n "$tag" ]] || continue
-  docker tag "$IMAGE_NAME:${short_date}" "$DOCKERHUB_REPO:${tag}"
-  docker push "$DOCKERHUB_REPO:${tag}"
+  docker tag "$IMAGE_REPOSITORY:${short_date}" "$IMAGE_REPOSITORY:${tag}"
+  docker push "$IMAGE_REPOSITORY:${tag}"
 done
 '''
                 }
@@ -115,6 +128,9 @@ done
         }
 
         stage('Create GitHub Release') {
+            when {
+                expression { env.BRANCH_NAME == env.DEFAULT_BRANCH }
+            }
             steps {
                 sh '''#!/usr/bin/env bash
 set -euo pipefail
@@ -145,8 +161,8 @@ cosmic_session_version="$(awk -F= '$1=="cosmic_session_version" {print $2}' "$OU
 changelog="$(awk '/^changelog<<EOF$/{flag=1;next}/^EOF$/{flag=0}flag' "$OUTPUT_FILE")"
 
 export RELEASE_TAG="$release_tag"
-export IMAGE_REGISTRY="docker.io"
-export IMAGE_NAME="$IMAGE_NAME"
+export IMAGE_REGISTRY="$IMAGE_REGISTRY"
+export IMAGE_NAME="$IMAGE_NAMESPACE/$IMAGE_NAME"
 export SHORT_DATE="$short_date"
 export BLUEFIN_VERSION="$bluefin_version"
 export KERNEL_VERSION="${kernel_version:-unknown}"
@@ -155,7 +171,7 @@ export WARP_VERSION="${warp_version:-unknown}"
 export VICINAE_VERSION="${vicinae_version:-unknown}"
 export COSMIC_SESSION_VERSION="${cosmic_session_version:-unknown}"
 export CHANGELOG="${changelog:-- No tracked package version changes detected.}"
-export DOCKERHUB_REPO="$DOCKERHUB_REPO"
+export IMAGE_PACKAGE_URL="$IMAGE_PACKAGE_URL"
 export RELEASE_BODY_FILE="$RELEASE_BODY_FILE"
 export MANIFEST_FILE="$MANIFEST_FILE"
 bash ci/jenkins/scripts/create_github_release.sh --render-only
@@ -206,8 +222,9 @@ export STATUS="success"
 export JOB_NAME="$JOB_NAME"
 export BUILD_NUMBER="$BUILD_NUMBER"
 export BUILD_URL="$BUILD_URL"
-export GIT_SHA="$GIT_COMMIT"
-export IMAGE_NAME="$DOCKERHUB_REPO"
+git_sha="${GIT_COMMIT:-${GIT_PREVIOUS_SUCCESSFUL_COMMIT:-unknown}}"
+export GIT_SHA="$git_sha"
+export IMAGE_NAME="$IMAGE_REPOSITORY"
 export PUBLISHED_TAGS="${published_tags:-$short_date}"
 export TIMESTAMP_UTC="$finished_at"
 export ERROR_SUMMARY=""
@@ -225,7 +242,13 @@ fi
 set -euo pipefail
 
 finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-started_at="${BUILD_STARTED_AT:-$finished_at}"
+started_at="${BUILD_STARTED_AT:-}"
+if [[ -z "$started_at" && -f ci/jenkins/build/started_at ]]; then
+  started_at="$(<ci/jenkins/build/started_at)"
+fi
+if [[ -z "$started_at" ]]; then
+  started_at="$finished_at"
+fi
 started_epoch="$(date -u -d "$started_at" +%s 2>/dev/null || printf '0')"
 finished_epoch="$(date -u -d "$finished_at" +%s 2>/dev/null || printf '0')"
 duration_ms="$(( (finished_epoch - started_epoch) * 1000 ))"
@@ -236,7 +259,7 @@ export JOB_NAME="$JOB_NAME"
 export BUILD_NUMBER="$BUILD_NUMBER"
 export BUILD_URL="$BUILD_URL"
 export GIT_SHA="${GIT_COMMIT:-unknown}"
-export IMAGE_NAME="$DOCKERHUB_REPO"
+export IMAGE_NAME="$IMAGE_REPOSITORY"
 export PUBLISHED_TAGS=""
 export TIMESTAMP_UTC="$finished_at"
 export ERROR_SUMMARY="Pipeline failed before completion."

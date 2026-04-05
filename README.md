@@ -1,7 +1,7 @@
 # bluefin-cosmic-dx
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/bluefin-cosmic-dx)](https://artifacthub.io/packages/search?repo=bluefin-cosmic-dx)
-[![Docker Hub](https://img.shields.io/docker/pulls/ericrocha97/bluefin-cosmic-dx?label=Docker%20Hub&logo=docker)](https://hub.docker.com/r/ericrocha97/bluefin-cosmic-dx)
+[![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fericrocha97%2Fbluefin--cosmic--dx-2ea44f?logo=github)](https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx)
 
 This project was created using the finpilot template: <https://github.com/projectbluefin/finpilot>.
 
@@ -12,8 +12,8 @@ It builds a custom bootc image based on Bluefin DX, using the multi-stage OCI pa
 ## Build and Publish
 
 - Official image build and publication runs via self-hosted Jenkins (`Jenkinsfile`).
-- Published image registry: `docker.io/ericrocha97/bluefin-cosmic-dx`.
-- GitHub Actions can still be used for repository checks, while image publishing is handled by Jenkins.
+- Published image registry: `ghcr.io/ericrocha97/bluefin-cosmic-dx`.
+- GitHub Actions (`.github/workflows/build.yml`) remains the reference pipeline; Jenkins mirrors the same GHCR publishing strategy.
 
 ## What Makes this Raptor Different?
 
@@ -78,7 +78,7 @@ Base image: `ghcr.io/ublue-os/bluefin-dx:stable-daily`
 
 ## Jenkins Pipeline Operations
 
-For Jenkins CI/CD operations (Docker Hub publishing, GitHub release automation, n8n webhook ingestion, Postgres persistence, and email alerting), see `docs/jenkins/README.md`.
+For Jenkins CI/CD operations (GHCR publishing, GitHub release automation, n8n webhook ingestion, Postgres persistence, and email alerting), see `docs/jenkins/README.md` (PT-BR).
 
 ## Basic usage
 
@@ -143,7 +143,7 @@ just run-vm-qcow2       # 3. Run the VM
 Switch your system to this image:
 
 ```bash
-sudo bootc switch docker.io/ericrocha97/bluefin-cosmic-dx:stable
+sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
 sudo systemctl reboot
 ```
 

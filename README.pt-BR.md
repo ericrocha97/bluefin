@@ -1,7 +1,7 @@
 # bluefin-cosmic-dx
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/bluefin-cosmic-dx)](https://artifacthub.io/packages/search?repo=bluefin-cosmic-dx)
-[![Docker Hub](https://img.shields.io/docker/pulls/ericrocha97/bluefin-cosmic-dx?label=Docker%20Hub&logo=docker)](https://hub.docker.com/r/ericrocha97/bluefin-cosmic-dx)
+[![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fericrocha97%2Fbluefin--cosmic--dx-2ea44f?logo=github)](https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx)
 
 Este projeto foi criado usando o template finpilot: <https://github.com/projectbluefin/finpilot>.
 
@@ -12,8 +12,8 @@ Ele constrói uma imagem bootc customizada baseada no Bluefin DX, usando o padr�
 ## Build e Publicação
 
 - O build e a publicação oficiais da imagem rodam via Jenkins self-hosted (`Jenkinsfile`).
-- Registro oficial da imagem: `docker.io/ericrocha97/bluefin-cosmic-dx`.
-- O GitHub Actions pode continuar sendo usado para validações do repositório, enquanto a publicação da imagem fica no Jenkins.
+- Registro oficial da imagem: `ghcr.io/ericrocha97/bluefin-cosmic-dx`.
+- O GitHub Actions (`.github/workflows/build.yml`) continua como pipeline de referência; o Jenkins espelha a mesma estratégia de publicação no GHCR.
 
 ## O que torna este Raptor diferente?
 
@@ -139,7 +139,7 @@ just run-vm-qcow2       # 3. Executa a VM
 Trocar seu sistema para esta imagem:
 
 ```bash
-sudo bootc switch docker.io/ericrocha97/bluefin-cosmic-dx:stable
+sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
 sudo systemctl reboot
 ```
 
