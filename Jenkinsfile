@@ -35,18 +35,25 @@ pipeline {
                 script {
                     def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: '').trim()
                     branch = branch.replaceFirst('^origin/', '').replaceFirst('^refs/heads/', '')
+
+                    if (!branch) {
+                        def gitBranch = ''
+                        if (sh(script: 'git rev-parse --abbrev-ref HEAD >/dev/null 2>&1', returnStatus: true) == 0) {
+                            gitBranch = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                            gitBranch = gitBranch.replaceFirst('^origin/', '').replaceFirst('^refs/heads/', '')
+                            if (gitBranch != 'HEAD') {
+                                branch = gitBranch
+                            }
+                        }
+                    }
+
+                    if (!branch) {
+                        branch = 'unknown'
+                        echo "WARN: Unable to determine branch context from BRANCH_NAME/GIT_BRANCH or git checkout; release stages will be skipped."
+                    }
+
                     env.EFFECTIVE_BRANCH = branch
                     echo "Branch context: BRANCH_NAME='${env.BRANCH_NAME}', GIT_BRANCH='${env.GIT_BRANCH}', EFFECTIVE_BRANCH='${env.EFFECTIVE_BRANCH}'"
-                }
-            }
-        }
-
-        stage('Validate Release Branch') {
-            steps {
-                script {
-                    if (env.EFFECTIVE_BRANCH != env.DEFAULT_BRANCH) {
-                        error("Refusing to run release pipeline on branch '${env.EFFECTIVE_BRANCH}'. Configure the Jenkins job to build '${env.DEFAULT_BRANCH}'.")
-                    }
                 }
             }
         }
@@ -125,11 +132,7 @@ bash ci/jenkins/scripts/extract_versions.sh
 
         stage('Push GHCR') {
             when {
-                expression {
-                    def branch = (env.EFFECTIVE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: '')
-                    branch = branch.replaceFirst('^origin/', '').replaceFirst('^refs/heads/', '')
-                    branch == env.DEFAULT_BRANCH
-                }
+                expression { env.EFFECTIVE_BRANCH == env.DEFAULT_BRANCH }
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'ghcr-creds', usernameVariable: 'GHCR_USERNAME', passwordVariable: 'GHCR_TOKEN')]) {
@@ -162,11 +165,7 @@ done
 
         stage('Create GitHub Release') {
             when {
-                expression {
-                    def branch = (env.EFFECTIVE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: '')
-                    branch = branch.replaceFirst('^origin/', '').replaceFirst('^refs/heads/', '')
-                    branch == env.DEFAULT_BRANCH
-                }
+                expression { env.EFFECTIVE_BRANCH == env.DEFAULT_BRANCH }
             }
             steps {
                 withCredentials([string(credentialsId: 'github-token', variable: 'GH_TOKEN')]) {
