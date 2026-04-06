@@ -47,11 +47,11 @@ Mínimo para este fluxo:
 - `Pipeline`
 - `Git`
 - `Credentials Binding`
+- `Timestamper`
 
 Úteis (opcional):
 
 - `Build Timeout`
-- `Timestamper`
 - `Workspace Cleanup`
 - `Folders`
 

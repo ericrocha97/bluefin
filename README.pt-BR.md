@@ -152,13 +152,13 @@ sudo systemctl reboot
 
 ## Opcional: Habilitar assinatura de imagem
 
-A assinatura de imagem e opcional. O repositorio inclui etapas de assinatura com Cosign em `.github/workflows/build.yml`, mas elas so funcionam quando `SIGNING_SECRET` esta configurado.
+A assinatura de imagem é opcional. O repositório inclui etapas de assinatura com Cosign em `.github/workflows/build.yml`, mas elas só funcionam quando `SIGNING_SECRET` está configurado.
 
 - Gere as chaves com `cosign generate-key-pair`
-- Adicione o conteudo da chave privada como segredo `SIGNING_SECRET` no repositorio
-- Mantenha `cosign.key` privado (nunca comite); apenas `cosign.pub` pode ser versionado
+- Adicione o conteúdo da chave privada como segredo `SIGNING_SECRET` no repositório
+- Mantenha `cosign.key` privado (nunca faça commit); apenas `cosign.pub` pode ser versionado
 
-Se voce nao quiser assinatura no GitHub Actions, comente as etapas do Cosign em `.github/workflows/build.yml`.
+Se você não quiser assinatura no GitHub Actions, comente as etapas do Cosign em `.github/workflows/build.yml`.
 
 ## Escolhendo o Desktop no Login
 

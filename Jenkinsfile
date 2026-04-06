@@ -200,7 +200,11 @@ gh release upload "$release_tag" "$MANIFEST_FILE" --clobber
 
     post {
         success {
-            sh '''#!/usr/bin/env bash
+            withCredentials([
+                string(credentialsId: 'n8n-webhook-url', variable: 'WEBHOOK_URL'),
+                string(credentialsId: 'n8n-webhook-token', variable: 'N8N_WEBHOOK_SHARED_TOKEN')
+            ]) {
+                sh '''#!/usr/bin/env bash
 set -euo pipefail
 
 published_tags="$(paste -sd, "$TAGS_FILE")"
@@ -246,9 +250,14 @@ if ! bash ci/jenkins/scripts/notify_n8n.sh; then
   echo "WARN: notify_n8n.sh failed in post-success hook (best-effort notification)." >&2
 fi
 '''
+            }
         }
         failure {
-            sh '''#!/usr/bin/env bash
+            withCredentials([
+                string(credentialsId: 'n8n-webhook-url', variable: 'WEBHOOK_URL'),
+                string(credentialsId: 'n8n-webhook-token', variable: 'N8N_WEBHOOK_SHARED_TOKEN')
+            ]) {
+                sh '''#!/usr/bin/env bash
 set -euo pipefail
 
 finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -281,6 +290,7 @@ if ! bash ci/jenkins/scripts/notify_n8n.sh; then
   echo "WARN: notify_n8n.sh failed in post-failure hook (best-effort notification)." >&2
 fi
 '''
+            }
         }
         always {
             archiveArtifacts artifacts: 'ci/jenkins/build/*', allowEmptyArchive: true
