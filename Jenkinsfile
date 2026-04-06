@@ -30,6 +30,27 @@ pipeline {
     }
 
     stages {
+        stage('Resolve Branch Context') {
+            steps {
+                script {
+                    def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: '').trim()
+                    branch = branch.replaceFirst('^origin/', '').replaceFirst('^refs/heads/', '')
+                    env.EFFECTIVE_BRANCH = branch
+                    echo "Branch context: BRANCH_NAME='${env.BRANCH_NAME}', GIT_BRANCH='${env.GIT_BRANCH}', EFFECTIVE_BRANCH='${env.EFFECTIVE_BRANCH}'"
+                }
+            }
+        }
+
+        stage('Validate Release Branch') {
+            steps {
+                script {
+                    if (env.EFFECTIVE_BRANCH != env.DEFAULT_BRANCH) {
+                        error("Refusing to run release pipeline on branch '${env.EFFECTIVE_BRANCH}'. Configure the Jenkins job to build '${env.DEFAULT_BRANCH}'.")
+                    }
+                }
+            }
+        }
+
         stage('Build Image') {
             steps {
                 withCredentials([string(credentialsId: 'github-token', variable: 'GH_TOKEN')]) {
@@ -104,7 +125,11 @@ bash ci/jenkins/scripts/extract_versions.sh
 
         stage('Push GHCR') {
             when {
-                expression { env.BRANCH_NAME == env.DEFAULT_BRANCH }
+                expression {
+                    def branch = (env.EFFECTIVE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: '')
+                    branch = branch.replaceFirst('^origin/', '').replaceFirst('^refs/heads/', '')
+                    branch == env.DEFAULT_BRANCH
+                }
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'ghcr-creds', usernameVariable: 'GHCR_USERNAME', passwordVariable: 'GHCR_TOKEN')]) {
@@ -137,7 +162,11 @@ done
 
         stage('Create GitHub Release') {
             when {
-                expression { env.BRANCH_NAME == env.DEFAULT_BRANCH }
+                expression {
+                    def branch = (env.EFFECTIVE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: '')
+                    branch = branch.replaceFirst('^origin/', '').replaceFirst('^refs/heads/', '')
+                    branch == env.DEFAULT_BRANCH
+                }
             }
             steps {
                 withCredentials([string(credentialsId: 'github-token', variable: 'GH_TOKEN')]) {

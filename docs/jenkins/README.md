@@ -81,6 +81,7 @@ No Pipeline job, use um bloco `withCredentials` para exportar:
 - `N8N_WEBHOOK_SHARED_TOKEN`
 
 Observação: o `Jenkinsfile` deste repositório já usa Credentials Binding para autenticação no registro (`ghcr-creds`).
+Observação: o `Jenkinsfile` também usa `github-token`, `n8n-webhook-url` e `n8n-webhook-token` diretamente nos estágios/hook correspondentes.
 
 Observação: para release automation, o token GitHub precisa de permissão para releases no repositório.
 
@@ -182,6 +183,7 @@ Você também pode executar manualmente com `Build Now`.
 
 - Mensagem comum: `WEBHOOK_URL is required` ou `N8N_WEBHOOK_SHARED_TOKEN is required`
 - Confirme variáveis de ambiente no Jenkins.
+- Se a URL usar `localhost`/`127.0.0.1`, ela resolve dentro do runtime do Jenkins. Em ambientes com n8n separado, use hostname/IP acessível pelo container/agent Jenkins.
 
 ### n8n rejeita webhook
 

@@ -42,7 +42,9 @@ assert_file_contains "$JENKINSFILE" "if [[ -z \"\$short_date\" && -f ci/jenkins/
 assert_file_contains "$JENKINSFILE" "release_tag=\"\${RELEASE_TAG:-}\""
 assert_file_contains "$JENKINSFILE" "if [[ -z \"\$release_tag\" && -f ci/jenkins/build/release_tag ]]; then"
 assert_file_contains "$JENKINSFILE" "trap cleanup EXIT"
-assert_file_contains "$JENKINSFILE" "expression { env.BRANCH_NAME == env.DEFAULT_BRANCH }"
+assert_file_contains "$JENKINSFILE" "def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: '')"
+assert_file_contains "$JENKINSFILE" "branch = branch.replaceFirst('^origin/', '').replaceFirst('^refs/heads/', '')"
+assert_file_contains "$JENKINSFILE" "branch == env.DEFAULT_BRANCH"
 
 assert_file_contains "$JENKINSFILE" "rpm -qa --queryformat '%{NAME}\\t%{VERSION}-%{RELEASE}\\n'"
 assert_file_contains "$JENKINSFILE" "awk -F= '\$1==\"IMAGE_VERSION\" {gsub(/\"/,\"\",\$2); print \$2; exit}' /etc/os-release > ci/jenkins/build/bluefin_version"

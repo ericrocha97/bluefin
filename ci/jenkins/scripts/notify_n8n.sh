@@ -76,6 +76,10 @@ fi
 : "${WEBHOOK_URL:?WEBHOOK_URL is required when DRY_RUN is not true}"
 : "${N8N_WEBHOOK_SHARED_TOKEN:?N8N_WEBHOOK_SHARED_TOKEN is required when DRY_RUN is not true}"
 
+if [[ "$WEBHOOK_URL" == *"localhost"* || "$WEBHOOK_URL" == *"127.0.0.1"* ]]; then
+    echo "WARN: WEBHOOK_URL points to localhost/127.0.0.1. This resolves inside the Jenkins runtime and can fail if n8n is external." >&2
+fi
+
 printf '%s' "$payload" | curl --silent --show-error --fail \
     --connect-timeout "$curl_connect_timeout" \
     --max-time "$curl_max_time" \
