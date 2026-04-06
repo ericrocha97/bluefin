@@ -1,0 +1,299 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds(abortPrevious: true)
+        timestamps()
+    }
+
+    triggers {
+        cron('H 10 * * *')
+    }
+
+    environment {
+        IMAGE_REGISTRY = 'ghcr.io'
+        IMAGE_NAMESPACE = 'ericrocha97'
+        IMAGE_NAME = 'bluefin-cosmic-dx'
+        IMAGE_REPOSITORY = 'ghcr.io/ericrocha97/bluefin-cosmic-dx'
+        IMAGE_PACKAGE_URL = 'https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx'
+        DEFAULT_BRANCH = 'main'
+        VERSION_DATE = ''
+        SHORT_DATE = ''
+        RELEASE_TAG = ''
+        BUILD_DATE = ''
+        BUILD_STARTED_AT = ''
+        MANIFEST_FILE = 'ci/jenkins/build/manifest.txt'
+        OUTPUT_FILE = 'ci/jenkins/build/versions.env'
+        TAGS_FILE = 'ci/jenkins/build/tags.txt'
+        LABELS_FILE = 'ci/jenkins/build/labels.txt'
+        RELEASE_BODY_FILE = 'ci/jenkins/build/release-body.md'
+    }
+
+    stages {
+        stage('Build Image') {
+            steps {
+                withCredentials([string(credentialsId: 'github-token', variable: 'GH_TOKEN')]) {
+                    sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+mkdir -p ci/jenkins/build
+
+started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+build_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+short_date="$(date -u +%Y%m%d)"
+
+echo "${started_at}" > ci/jenkins/build/started_at
+echo "${build_date}" > ci/jenkins/build/build_date
+echo "${short_date}" > ci/jenkins/build/short_date
+echo "v${short_date}" > ci/jenkins/build/release_tag
+
+                export IMAGE_NAME="$IMAGE_NAME"
+                export BUILD_DATE="$build_date"
+                export VERSION_DATE="$short_date"
+                export TAGS_FILE="$TAGS_FILE"
+                export LABELS_FILE="$LABELS_FILE"
+                bash ci/jenkins/scripts/generate_metadata.sh
+
+                labels_args=()
+                while IFS= read -r label; do
+                    [[ -n "$label" ]] || continue
+                    labels_args+=("--label" "$label")
+                done < "$LABELS_FILE"
+
+docker build --pull -f Containerfile --build-arg RELEASE_TAG="v${short_date}" "${labels_args[@]}" -t "$IMAGE_REPOSITORY:${short_date}" .
+
+docker run --rm "$IMAGE_REPOSITORY:${short_date}" rpm -qa --queryformat '%{NAME}\t%{VERSION}-%{RELEASE}\n' | sort > "$MANIFEST_FILE"
+docker run --rm "$IMAGE_REPOSITORY:${short_date}" awk -F= '$1=="IMAGE_VERSION" {gsub(/"/,"",$2); print $2; exit}' /etc/os-release > ci/jenkins/build/bluefin_version
+if [[ ! -s ci/jenkins/build/bluefin_version ]]; then
+  docker run --rm "$IMAGE_REPOSITORY:${short_date}" awk -F= '$1=="VERSION_ID" {gsub(/"/,"",$2); print $2; exit}' /etc/os-release > ci/jenkins/build/bluefin_version
+fi
+if [[ ! -s ci/jenkins/build/bluefin_version ]]; then
+  printf 'unknown\n' > ci/jenkins/build/bluefin_version
+fi
+
+rm -f ci/jenkins/build/previous-manifest.txt
+RELEASE_TAG="$(<ci/jenkins/build/release_tag)"
+previous_release_tag="$(gh release list --limit 100 --json tagName --jq '.[] | .tagName' 2>/dev/null | awk -v current="$RELEASE_TAG" '$0 != current { print; exit }' || true)"
+if [[ -n "$previous_release_tag" ]]; then
+  previous_manifest_dir="ci/jenkins/build/previous-manifest"
+  mkdir -p "$previous_manifest_dir"
+  if gh release download "$previous_release_tag" --pattern "$(basename "$MANIFEST_FILE")" --dir "$previous_manifest_dir" --clobber >/dev/null 2>&1; then
+    downloaded_manifest="$previous_manifest_dir/$(basename "$MANIFEST_FILE")"
+    if [[ -f "$downloaded_manifest" ]]; then
+      cp "$downloaded_manifest" ci/jenkins/build/previous-manifest.txt
+    fi
+  fi
+fi
+
+export CURRENT_MANIFEST="$MANIFEST_FILE"
+if [[ -f ci/jenkins/build/previous-manifest.txt ]]; then
+  export PREVIOUS_MANIFEST="ci/jenkins/build/previous-manifest.txt"
+fi
+export OUTPUT_FILE="$OUTPUT_FILE"
+bash ci/jenkins/scripts/extract_versions.sh
+'''
+                }
+                script {
+                    env.BUILD_STARTED_AT = readFile('ci/jenkins/build/started_at').trim()
+                    env.BUILD_DATE = readFile('ci/jenkins/build/build_date').trim()
+                    env.SHORT_DATE = readFile('ci/jenkins/build/short_date').trim()
+                    env.RELEASE_TAG = readFile('ci/jenkins/build/release_tag').trim()
+                }
+            }
+        }
+
+        stage('Push GHCR') {
+            when {
+                expression { env.BRANCH_NAME == env.DEFAULT_BRANCH }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'ghcr-creds', usernameVariable: 'GHCR_USERNAME', passwordVariable: 'GHCR_TOKEN')]) {
+                    sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+printf '%s' "$GHCR_TOKEN" | docker login "$IMAGE_REGISTRY" -u "$GHCR_USERNAME" --password-stdin
+
+short_date="${SHORT_DATE:-}"
+if [[ -z "$short_date" && -f ci/jenkins/build/short_date ]]; then
+  short_date="$(<ci/jenkins/build/short_date)"
+fi
+: "${short_date:?short_date is required}"
+
+cleanup() {
+  docker logout >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+mapfile -t tags < "$TAGS_FILE"
+for tag in "${tags[@]}"; do
+  [[ -n "$tag" ]] || continue
+  docker tag "$IMAGE_REPOSITORY:${short_date}" "$IMAGE_REPOSITORY:${tag}"
+  docker push "$IMAGE_REPOSITORY:${tag}"
+done
+'''
+                }
+            }
+        }
+
+        stage('Create GitHub Release') {
+            when {
+                expression { env.BRANCH_NAME == env.DEFAULT_BRANCH }
+            }
+            steps {
+                withCredentials([string(credentialsId: 'github-token', variable: 'GH_TOKEN')]) {
+                    sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+short_date="${SHORT_DATE:-}"
+if [[ -z "$short_date" && -f ci/jenkins/build/short_date ]]; then
+  short_date="$(<ci/jenkins/build/short_date)"
+fi
+
+release_tag="${RELEASE_TAG:-}"
+if [[ -z "$release_tag" && -f ci/jenkins/build/release_tag ]]; then
+  release_tag="$(<ci/jenkins/build/release_tag)"
+fi
+
+: "${short_date:?short_date is required}"
+: "${release_tag:?release_tag is required}"
+
+bluefin_version="unknown"
+if [[ -f ci/jenkins/build/bluefin_version ]]; then
+  bluefin_version="$(<ci/jenkins/build/bluefin_version)"
+fi
+
+kernel_version="$(awk -F= '$1=="kernel_version" {print $2}' "$OUTPUT_FILE")"
+vscode_version="$(awk -F= '$1=="vscode_version" {print $2}' "$OUTPUT_FILE")"
+warp_version="$(awk -F= '$1=="warp_version" {print $2}' "$OUTPUT_FILE")"
+vicinae_version="$(awk -F= '$1=="vicinae_version" {print $2}' "$OUTPUT_FILE")"
+cosmic_session_version="$(awk -F= '$1=="cosmic_session_version" {print $2}' "$OUTPUT_FILE")"
+changelog="$(awk '/^changelog<<EOF$/{flag=1;next}/^EOF$/{flag=0}flag' "$OUTPUT_FILE")"
+
+export RELEASE_TAG="$release_tag"
+export IMAGE_REGISTRY="$IMAGE_REGISTRY"
+export IMAGE_NAME="$IMAGE_NAMESPACE/$IMAGE_NAME"
+export SHORT_DATE="$short_date"
+export BLUEFIN_VERSION="$bluefin_version"
+export KERNEL_VERSION="${kernel_version:-unknown}"
+export VSCODE_VERSION="${vscode_version:-unknown}"
+export WARP_VERSION="${warp_version:-unknown}"
+export VICINAE_VERSION="${vicinae_version:-unknown}"
+export COSMIC_SESSION_VERSION="${cosmic_session_version:-unknown}"
+export CHANGELOG="${changelog:-- No tracked package version changes detected.}"
+export IMAGE_PACKAGE_URL="$IMAGE_PACKAGE_URL"
+export RELEASE_BODY_FILE="$RELEASE_BODY_FILE"
+export MANIFEST_FILE="$MANIFEST_FILE"
+bash ci/jenkins/scripts/create_github_release.sh --render-only
+
+if gh release view "$release_tag" >/dev/null 2>&1; then
+  gh release edit "$release_tag" --title "$release_tag" --notes-file "$RELEASE_BODY_FILE"
+else
+  gh release create "$release_tag" --title "$release_tag" --notes-file "$RELEASE_BODY_FILE"
+fi
+
+gh release upload "$release_tag" "$MANIFEST_FILE" --clobber
+'''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            withCredentials([
+                string(credentialsId: 'n8n-webhook-url', variable: 'WEBHOOK_URL'),
+                string(credentialsId: 'n8n-webhook-token', variable: 'N8N_WEBHOOK_SHARED_TOKEN')
+            ]) {
+                sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+published_tags="$(paste -sd, "$TAGS_FILE")"
+finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+build_started_at="${BUILD_STARTED_AT:-}"
+if [[ -z "$build_started_at" && -f ci/jenkins/build/started_at ]]; then
+  build_started_at="$(<ci/jenkins/build/started_at)"
+fi
+if [[ -z "$build_started_at" ]]; then
+  build_started_at="$finished_at"
+fi
+
+short_date="${SHORT_DATE:-}"
+if [[ -z "$short_date" && -f ci/jenkins/build/short_date ]]; then
+  short_date="$(<ci/jenkins/build/short_date)"
+fi
+
+release_tag="${RELEASE_TAG:-}"
+if [[ -z "$release_tag" && -f ci/jenkins/build/release_tag ]]; then
+  release_tag="$(<ci/jenkins/build/release_tag)"
+fi
+
+started_epoch="$(date -u -d "$build_started_at" +%s 2>/dev/null || printf '0')"
+finished_epoch="$(date -u -d "$finished_at" +%s 2>/dev/null || printf '0')"
+duration_ms="$(( (finished_epoch - started_epoch) * 1000 ))"
+if (( duration_ms < 0 )); then duration_ms=0; fi
+
+export STATUS="success"
+export JOB_NAME="$JOB_NAME"
+export BUILD_NUMBER="$BUILD_NUMBER"
+export BUILD_URL="$BUILD_URL"
+git_sha="${GIT_COMMIT:-${GIT_PREVIOUS_SUCCESSFUL_COMMIT:-unknown}}"
+export GIT_SHA="$git_sha"
+export IMAGE_NAME="$IMAGE_REPOSITORY"
+export PUBLISHED_TAGS="${published_tags:-$short_date}"
+export TIMESTAMP_UTC="$finished_at"
+export ERROR_SUMMARY=""
+export STARTED_AT="$build_started_at"
+export FINISHED_AT="$finished_at"
+export DURATION_MS="$duration_ms"
+export RELEASE_TAG="${release_tag:-unknown}"
+if ! bash ci/jenkins/scripts/notify_n8n.sh; then
+  echo "WARN: notify_n8n.sh failed in post-success hook (best-effort notification)." >&2
+fi
+'''
+            }
+        }
+        failure {
+            withCredentials([
+                string(credentialsId: 'n8n-webhook-url', variable: 'WEBHOOK_URL'),
+                string(credentialsId: 'n8n-webhook-token', variable: 'N8N_WEBHOOK_SHARED_TOKEN')
+            ]) {
+                sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+started_at="${BUILD_STARTED_AT:-}"
+if [[ -z "$started_at" && -f ci/jenkins/build/started_at ]]; then
+  started_at="$(<ci/jenkins/build/started_at)"
+fi
+if [[ -z "$started_at" ]]; then
+  started_at="$finished_at"
+fi
+started_epoch="$(date -u -d "$started_at" +%s 2>/dev/null || printf '0')"
+finished_epoch="$(date -u -d "$finished_at" +%s 2>/dev/null || printf '0')"
+duration_ms="$(( (finished_epoch - started_epoch) * 1000 ))"
+if (( duration_ms < 0 )); then duration_ms=0; fi
+
+export STATUS="failure"
+export JOB_NAME="$JOB_NAME"
+export BUILD_NUMBER="$BUILD_NUMBER"
+export BUILD_URL="$BUILD_URL"
+export GIT_SHA="${GIT_COMMIT:-unknown}"
+export IMAGE_NAME="$IMAGE_REPOSITORY"
+export PUBLISHED_TAGS=""
+export TIMESTAMP_UTC="$finished_at"
+export ERROR_SUMMARY="Pipeline failed before completion."
+export STARTED_AT="$started_at"
+export FINISHED_AT="$finished_at"
+export DURATION_MS="$duration_ms"
+export RELEASE_TAG="${RELEASE_TAG:-unknown}"
+if ! bash ci/jenkins/scripts/notify_n8n.sh; then
+  echo "WARN: notify_n8n.sh failed in post-failure hook (best-effort notification)." >&2
+fi
+'''
+            }
+        }
+        always {
+            archiveArtifacts artifacts: 'ci/jenkins/build/*', allowEmptyArchive: true
+        }
+    }
+}

@@ -1,0 +1,135 @@
+{
+  "name": "Jenkins Build Events",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "jenkins-build-events",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const headers = $json.headers ?? {};\nconst expectedToken = $env.N8N_WEBHOOK_SHARED_TOKEN;\nif (typeof expectedToken !== 'string' || expectedToken.length === 0) {\n  throw new Error('Server misconfigured: N8N_WEBHOOK_SHARED_TOKEN is missing');\n}\nlet providedToken = '';\nfor (const [key, value] of Object.entries(headers)) {\n  if (typeof key === 'string' && key.toLowerCase() === 'x-jenkins-webhook-token') {\n    providedToken = Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '');\n    break;\n  }\n}\nif (providedToken !== expectedToken) {\n  throw new Error('Unauthorized webhook token');\n}\nconst body = $json.body ?? $json;\nconst required = ['job_name', 'build_number', 'status'];\nconst missing = required.filter((key) => body[key] === undefined || body[key] === null || body[key] === '');\nif (missing.length > 0) {\n  throw new Error(`Missing required fields: ${missing.join(', ')}`);\n}\nconst buildNumber = Number(body.build_number);\nif (!Number.isInteger(buildNumber) || buildNumber < 0) {\n  throw new Error('Invalid build_number: must be a non-negative integer');\n}\nif (typeof body.status !== 'string' || body.status.trim().length === 0) {\n  throw new Error('Invalid status: must be a non-empty string');\n}\nconst durationRaw = body.duration_ms;\nconst durationMs = durationRaw === undefined || durationRaw === null || durationRaw === '' ? null : Number(durationRaw);\nif (durationMs !== null && !Number.isFinite(durationMs)) {\n  throw new Error('Invalid duration_ms: must be numeric when provided');\n}\nreturn [{\n  json: {\n    ...body,\n    build_number: buildNumber,\n    status: body.status.trim(),\n    duration_ms: durationMs,\n  },\n}];"
+      },
+      "id": "2",
+      "name": "Validate Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ci_pipeline_runs (job_name, build_number, status, build_url, git_sha, image_name, release_tag, started_at, finished_at, duration_ms, published_tags, payload, created_at, updated_at)\nVALUES (\n  $1,\n  $2,\n  $3,\n  $4,\n  $5,\n  $6,\n  $7,\n  $8,\n  $9,\n  $10,\n  $11::jsonb,\n  $12::jsonb,\n  NOW(),\n  NOW()\n)\nON CONFLICT (job_name, build_number)\nDO UPDATE SET\n  status = EXCLUDED.status,\n  build_url = EXCLUDED.build_url,\n  git_sha = EXCLUDED.git_sha,\n  image_name = EXCLUDED.image_name,\n  release_tag = EXCLUDED.release_tag,\n  started_at = EXCLUDED.started_at,\n  finished_at = EXCLUDED.finished_at,\n  duration_ms = EXCLUDED.duration_ms,\n  published_tags = EXCLUDED.published_tags,\n  payload = EXCLUDED.payload,\n  updated_at = NOW()\nRETURNING id, job_name, build_number, status, created_at, updated_at;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.job_name,\n  $json.build_number,\n  $json.status,\n  $json.build_url ?? null,\n  $json.git_sha ?? null,\n  $json.image_name ?? null,\n  $json.release_tag ?? null,\n  $json.started_at ?? null,\n  $json.finished_at ?? null,\n  $json.duration_ms ?? null,\n  JSON.stringify($json.published_tags ?? []),\n  JSON.stringify($json),\n] }}"
+        }
+      },
+      "id": "3",
+      "name": "Postgres Upsert",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$env.N8N_ALERT_EMAIL_TO || 'ops@example.com'}}",
+        "subject": "=[CI] {{$json.job_name}} #{{$json.build_number}} {{$json.status}}",
+        "emailType": "html",
+        "message": "=<!doctype html>\n<html lang=\"pt-BR\">\n  <body style=\"margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827;\">\n    <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f3f4f6;padding:24px 12px;\">\n      <tr>\n        <td align=\"center\">\n          <table role=\"presentation\" width=\"640\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;width:100%;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;\">\n            <tr>\n              <td style=\"padding:20px 24px;border-bottom:1px solid #e5e7eb;\">\n                <h2 style=\"margin:0 0 8px 0;font-size:20px;line-height:1.3;\">Notificacao de Build</h2>\n                <span style=\"display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;background:{{$json.status === 'success' ? '#dcfce7' : '#fee2e2'}};color:{{$json.status === 'success' ? '#166534' : '#991b1b'}};\">\n                  {{$json.status ? $json.status.toUpperCase() : 'N/A'}}\n                </span>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:20px 24px;\">\n                <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border-collapse:collapse;\">\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;width:170px;\">ID</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">{{$json.id || $json.build_number || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Job</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">{{$json.job_name || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Release</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">{{$json.release_tag || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Imagem</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">{{$json.image_name || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Tags publicadas</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">{{$json.published_tags ? ($json.published_tags.join ? $json.published_tags.join(', ') : $json.published_tags) : 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Git SHA</td>\n                    <td style=\"padding:8px 0;font-family:monospace;font-size:13px;\">{{$json.git_sha || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Inicio</td>\n                    <td style=\"padding:8px 0;\">{{$json.started_at || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Fim</td>\n                    <td style=\"padding:8px 0;\">{{$json.finished_at || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Duracao</td>\n                    <td style=\"padding:8px 0;\">{{$json.duration_ms || 'N/A'}} ms</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Erro</td>\n                    <td style=\"padding:8px 0;color:{{$json.error_summary ? '#991b1b' : '#111827'}};\">{{$json.error_summary || 'Sem erros reportados.'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Link</td>\n                    <td style=\"padding:8px 0;\">\n                      <a href=\"{{$json.link || $json.build_url || '#'}}\" style=\"color:#2563eb;text-decoration:none;\">{{$json.link || $json.build_url || 'N/A'}}</a>\n                    </td>\n                  </tr>\n                </table>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:0 24px 24px 24px;\">\n                <a href=\"{{$json.link || $json.build_url || '#'}}\" style=\"display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;font-size:14px;\">\n                  Abrir build\n                </a>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:14px 24px;background:#f9fafb;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;\">\n                Evento recebido em: {{$json.timestamp_utc || 'N/A'}}\n              </td>\n            </tr>\n          </table>\n        </td>\n      </tr>\n    </table>\n  </body>\n</html>"
+      },
+      "id": "4",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        950,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  ok: true,\n  message: 'event processed',\n  job_name: $json.job_name,\n  build_number: $json.build_number,\n  status: $json.status\n} }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "5",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1200,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Payload": {
+      "main": [
+        [
+          {
+            "node": "Postgres Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Upsert": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1"
+}

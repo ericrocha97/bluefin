@@ -1,13 +1,19 @@
 # bluefin-cosmic-dx
 
-[![Build](https://github.com/ericrocha97/bluefin/actions/workflows/build.yml/badge.svg)](https://github.com/ericrocha97/bluefin/actions/workflows/build.yml)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/bluefin-cosmic-dx)](https://artifacthub.io/packages/search?repo=bluefin-cosmic-dx)
+[![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fericrocha97%2Fbluefin--cosmic--dx-2ea44f?logo=github)](https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx)
 
 This project was created using the finpilot template: <https://github.com/projectbluefin/finpilot>.
 
 Portuguese version: [README.pt-BR.md](README.pt-BR.md)
 
 It builds a custom bootc image based on Bluefin DX, using the multi-stage OCI pattern from the Bluefin ecosystem.
+
+## Build and Publish
+
+- Official image build and publication runs via self-hosted Jenkins (`Jenkinsfile`).
+- Published image registry: `ghcr.io/ericrocha97/bluefin-cosmic-dx`.
+- GitHub Actions (`.github/workflows/build.yml`) remains the reference pipeline; Jenkins mirrors the same GHCR publishing strategy.
 
 ## What Makes this Raptor Different?
 
@@ -69,6 +75,10 @@ Based on **Bluefin DX**, this image adds:
 - All Bluefin DX features (containers, DevPods, CLI tools, etc.)
 
 Base image: `ghcr.io/ublue-os/bluefin-dx:stable-daily`
+
+## Jenkins Pipeline Operations
+
+For Jenkins CI/CD operations (GHCR publishing, GitHub release automation, n8n webhook ingestion, Postgres persistence, and email alerting), see `docs/jenkins/README.md` (PT-BR).
 
 ## Basic usage
 
@@ -137,16 +147,22 @@ sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
 sudo systemctl reboot
 ```
 
-## Image signing (optional)
-
-Image signing is optional. This repo has signing enabled in CI (with `SIGNING_SECRET` configured). SBOM generation/attestation is available but disabled by default — to enable, uncomment the Syft/SBOM steps in `.github/workflows/build.yml`. To disable signing, comment the related Cosign steps in the same file.
-
 Roll back to Bluefin DX:
 
 ```bash
 sudo bootc switch ghcr.io/ublue-os/bluefin-dx:stable
 sudo systemctl reboot
 ```
+
+## Optional: Enable Image Signing
+
+Image signing is optional. The repository includes Cosign signing steps in `.github/workflows/build.yml`, but they only work when `SIGNING_SECRET` is configured.
+
+- Generate keys with `cosign generate-key-pair`
+- Add private key content as repository secret `SIGNING_SECRET`
+- Keep `cosign.key` private (never commit); only `cosign.pub` may be committed
+
+If you do not want signing in GitHub Actions, comment out the Cosign steps in `.github/workflows/build.yml`.
 
 ## Choosing Desktop at Login
 

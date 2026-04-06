@@ -1,0 +1,6 @@
+kernel	6.8.12-300.fc42.x86_64
+code-insiders	1.92.0-1722860000.el8
+warp-terminal	0.2024.08.14.08.02.stable_00-1
+vicinae	0.5.2-1
+cosmic-session	1.0.0~alpha.7-1
+cosmic-panel	1.0.0~alpha.7-1

@@ -1,13 +1,19 @@
 # bluefin-cosmic-dx
 
-[![Build](https://github.com/ericrocha97/bluefin/actions/workflows/build.yml/badge.svg)](https://github.com/ericrocha97/bluefin/actions/workflows/build.yml)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/bluefin-cosmic-dx)](https://artifacthub.io/packages/search?repo=bluefin-cosmic-dx)
+[![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fericrocha97%2Fbluefin--cosmic--dx-2ea44f?logo=github)](https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx)
 
 Este projeto foi criado usando o template finpilot: <https://github.com/projectbluefin/finpilot>.
 
 Versão em inglês: [README.md](README.md)
 
 Ele constrói uma imagem bootc customizada baseada no Bluefin DX, usando o padrão multi-stage OCI do ecossistema Bluefin.
+
+## Build e Publicação
+
+- O build e a publicação oficiais da imagem rodam via Jenkins self-hosted (`Jenkinsfile`).
+- Registro oficial da imagem: `ghcr.io/ericrocha97/bluefin-cosmic-dx`.
+- O GitHub Actions (`.github/workflows/build.yml`) continua como pipeline de referência; o Jenkins espelha a mesma estratégia de publicação no GHCR.
 
 ## O que torna este Raptor diferente?
 
@@ -137,16 +143,22 @@ sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
 sudo systemctl reboot
 ```
 
-## Assinatura de imagem (opcional)
-
-A assinatura de imagem é opcional. Este repositório mantém a assinatura ativa no CI (com `SIGNING_SECRET` configurado). A geração/atestado de SBOM está disponível mas desativada por padrão — para ativar, descomente os passos do Syft/SBOM em `.github/workflows/build.yml`. Para desativar a assinatura, comente os passos do Cosign no mesmo arquivo.
-
 Voltar para o Bluefin DX:
 
 ```bash
 sudo bootc switch ghcr.io/ublue-os/bluefin-dx:stable
 sudo systemctl reboot
 ```
+
+## Opcional: Habilitar assinatura de imagem
+
+A assinatura de imagem é opcional. O repositório inclui etapas de assinatura com Cosign em `.github/workflows/build.yml`, mas elas só funcionam quando `SIGNING_SECRET` está configurado.
+
+- Gere as chaves com `cosign generate-key-pair`
+- Adicione o conteúdo da chave privada como segredo `SIGNING_SECRET` no repositório
+- Mantenha `cosign.key` privado (nunca faça commit); apenas `cosign.pub` pode ser versionado
+
+Se você não quiser assinatura no GitHub Actions, comente as etapas do Cosign em `.github/workflows/build.yml`.
 
 ## Escolhendo o Desktop no Login
 
