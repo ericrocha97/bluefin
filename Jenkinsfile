@@ -30,6 +30,34 @@ pipeline {
     }
 
     stages {
+        stage('Resolve Branch Context') {
+            steps {
+                script {
+                    def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: '').trim()
+                    branch = branch.replaceFirst('^origin/', '').replaceFirst('^refs/heads/', '')
+
+                    if (!branch) {
+                        def gitBranch = ''
+                        if (sh(script: 'git rev-parse --abbrev-ref HEAD >/dev/null 2>&1', returnStatus: true) == 0) {
+                            gitBranch = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                            gitBranch = gitBranch.replaceFirst('^origin/', '').replaceFirst('^refs/heads/', '')
+                            if (gitBranch != 'HEAD') {
+                                branch = gitBranch
+                            }
+                        }
+                    }
+
+                    if (!branch) {
+                        branch = 'unknown'
+                        echo "WARN: Unable to determine branch context from BRANCH_NAME/GIT_BRANCH or git checkout; release stages will be skipped."
+                    }
+
+                    env.EFFECTIVE_BRANCH = branch
+                    echo "Branch context: BRANCH_NAME='${env.BRANCH_NAME}', GIT_BRANCH='${env.GIT_BRANCH}', EFFECTIVE_BRANCH='${env.EFFECTIVE_BRANCH}'"
+                }
+            }
+        }
+
         stage('Build Image') {
             steps {
                 withCredentials([string(credentialsId: 'github-token', variable: 'GH_TOKEN')]) {
@@ -104,7 +132,7 @@ bash ci/jenkins/scripts/extract_versions.sh
 
         stage('Push GHCR') {
             when {
-                expression { env.BRANCH_NAME == env.DEFAULT_BRANCH }
+                expression { env.EFFECTIVE_BRANCH == env.DEFAULT_BRANCH }
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'ghcr-creds', usernameVariable: 'GHCR_USERNAME', passwordVariable: 'GHCR_TOKEN')]) {
@@ -137,7 +165,7 @@ done
 
         stage('Create GitHub Release') {
             when {
-                expression { env.BRANCH_NAME == env.DEFAULT_BRANCH }
+                expression { env.EFFECTIVE_BRANCH == env.DEFAULT_BRANCH }
             }
             steps {
                 withCredentials([string(credentialsId: 'github-token', variable: 'GH_TOKEN')]) {

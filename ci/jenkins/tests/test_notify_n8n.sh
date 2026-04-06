@@ -78,6 +78,10 @@ assert_file_contains "$CURL_BODY_FILE" '"git_sha":"0123456789abcdef"'
 assert_file_contains "$CURL_BODY_FILE" '"image_name":"ghcr.io/example/bluefin-cosmic-dx"'
 assert_file_contains "$CURL_BODY_FILE" '"timestamp_utc":"2026-04-03T13:30:00Z"'
 
+export WEBHOOK_URL="http://localhost:5678/webhook/build"
+warn_output="$(bash "$SCRIPT_PATH" 2>&1 >/dev/null || true)"
+assert_contains "$warn_output" "WARN: WEBHOOK_URL points to localhost/127.0.0.1"
+
 unset WEBHOOK_URL
 if bash "$SCRIPT_PATH" >/dev/null 2>&1; then
     fail "Script should fail when WEBHOOK_URL is missing and DRY_RUN is false"

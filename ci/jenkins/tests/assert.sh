@@ -30,3 +30,12 @@ assert_file_contains() {
         fail "Expected '$expected_text' in $file_path"
     fi
 }
+
+assert_contains() {
+    local actual_text="$1"
+    local expected_text="$2"
+
+    if [[ "$actual_text" != *"$expected_text"* ]]; then
+        fail "Expected '$expected_text' in provided text"
+    fi
+}
