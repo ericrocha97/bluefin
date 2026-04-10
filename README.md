@@ -13,7 +13,7 @@ It builds a custom bootc image based on Bluefin DX, using the multi-stage OCI pa
 
 - Official image build and publication runs via self-hosted Jenkins (`Jenkinsfile`).
 - Published image registry: `ghcr.io/ericrocha97/bluefin-cosmic-dx`.
-- GitHub Actions (`.github/workflows/build.yml`) remains the reference pipeline; Jenkins mirrors the same GHCR publishing strategy.
+- GitHub Actions (`.github/workflows/build.yml`) now runs only as a PR check (`pull_request` for `main`) and does not publish images.
 
 ## What Makes this Raptor Different?
 
@@ -156,13 +156,13 @@ sudo systemctl reboot
 
 ## Optional: Enable Image Signing
 
-Image signing is optional. The repository includes Cosign signing steps in `.github/workflows/build.yml`, but they only work when `SIGNING_SECRET` is configured.
+Image signing is optional. The repository keeps Cosign signing steps in `.github/workflows/build.yml` for future reuse, but this workflow currently runs only on PR checks and does not publish/sign release images.
 
 - Generate keys with `cosign generate-key-pair`
 - Add private key content as repository secret `SIGNING_SECRET`
 - Keep `cosign.key` private (never commit); only `cosign.pub` may be committed
 
-If you do not want signing in GitHub Actions, comment out the Cosign steps in `.github/workflows/build.yml`.
+If you decide to re-enable GitHub Actions release builds later, these signing steps can be reactivated there. For the current production flow, Jenkins is responsible for build/publish.
 
 ## Choosing Desktop at Login
 
