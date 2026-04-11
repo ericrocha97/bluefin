@@ -33,7 +33,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO ci_pipeline_runs (job_name, build_number, status, build_url, git_sha, image_name, release_tag, started_at, finished_at, duration_ms, published_tags, payload, created_at, updated_at)\nVALUES (\n  $1,\n  $2,\n  $3,\n  $4,\n  $5,\n  $6,\n  $7,\n  $8,\n  $9,\n  $10,\n  $11::jsonb,\n  $12::jsonb,\n  NOW(),\n  NOW()\n)\nON CONFLICT (job_name, build_number)\nDO UPDATE SET\n  status = EXCLUDED.status,\n  build_url = EXCLUDED.build_url,\n  git_sha = EXCLUDED.git_sha,\n  image_name = EXCLUDED.image_name,\n  release_tag = EXCLUDED.release_tag,\n  started_at = EXCLUDED.started_at,\n  finished_at = EXCLUDED.finished_at,\n  duration_ms = EXCLUDED.duration_ms,\n  published_tags = EXCLUDED.published_tags,\n  payload = EXCLUDED.payload,\n  updated_at = NOW()\nRETURNING id, job_name, build_number, status, created_at, updated_at;",
+        "query": "INSERT INTO ci_pipeline_runs (job_name, build_number, status, build_url, git_sha, image_name, release_tag, started_at, finished_at, duration_ms, published_tags, payload, created_at, updated_at)\nVALUES (\n  $1,\n  $2,\n  $3,\n  $4,\n  $5,\n  $6,\n  $7,\n  $8,\n  $9,\n  $10,\n  $11::jsonb,\n  $12::jsonb,\n  NOW(),\n  NOW()\n)\nON CONFLICT (job_name, build_number)\nDO UPDATE SET\n  status = EXCLUDED.status,\n  build_url = EXCLUDED.build_url,\n  git_sha = EXCLUDED.git_sha,\n  image_name = EXCLUDED.image_name,\n  release_tag = EXCLUDED.release_tag,\n  started_at = EXCLUDED.started_at,\n  finished_at = EXCLUDED.finished_at,\n  duration_ms = EXCLUDED.duration_ms,\n  published_tags = EXCLUDED.published_tags,\n  payload = EXCLUDED.payload,\n  updated_at = NOW()\nRETURNING id, job_name, build_number, status,\n  build_url,\n  git_sha,\n  image_name,\n  release_tag,\n  started_at,\n  finished_at,\n  duration_ms,\n  published_tags,\n  payload->>'timestamp_utc' AS timestamp_utc,\n  payload->>'error_summary' AS error_summary,\n  created_at,\n  updated_at;",
         "options": {
           "queryReplacement": "={{ [\n  $json.job_name,\n  $json.build_number,\n  $json.status,\n  $json.build_url ?? null,\n  $json.git_sha ?? null,\n  $json.image_name ?? null,\n  $json.release_tag ?? null,\n  $json.started_at ?? null,\n  $json.finished_at ?? null,\n  $json.duration_ms ?? null,\n  JSON.stringify($json.published_tags ?? []),\n  JSON.stringify($json),\n] }}"
         }
@@ -49,10 +49,35 @@
     },
     {
       "parameters": {
-        "sendTo": "={{$env.N8N_ALERT_EMAIL_TO || 'ops@example.com'}}",
+        "jsCode": "const configuredBaseUrl = $env.JENKINS_PUBLIC_URL ?? 'http://casaos.local:18080/';\nconst publicBaseUrl = String(configuredBaseUrl).trim() || 'http://casaos.local:18080/';\nreturn items.map((item) => ({\n  json: {\n    ...item.json,\n    link: publicBaseUrl,\n  },\n}));"
+      },
+      "id": "6",
+      "name": "Set Public Build Link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        825,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const escapeHtml = (value) => String(value ?? '')\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;')\n  .replace(/\"/g, '&quot;')\n  .replace(/'/g, '&#39;');\n\nreturn items.map((item) => {\n  const data = item.json ?? {};\n  const statusRaw = String(data.status ?? '').trim();\n  const statusLabel = statusRaw ? statusRaw.toUpperCase() : 'N/A';\n  const isSuccess = statusRaw.toLowerCase() === 'success';\n\n  const publishedTags = Array.isArray(data.published_tags)\n    ? data.published_tags\n        .map((tag) => String(tag ?? '').trim())\n        .filter((tag) => tag.length > 0)\n        .join(', ')\n    : String(data.published_tags ?? '').trim();\n\n  const buildLink = String(data.link || data.build_url || '#').trim() || '#';\n  const buildLinkLabel = String(data.link || data.build_url || 'N/A').trim() || 'N/A';\n  const errorSummary = String(data.error_summary ?? '').trim() || 'Sem erros reportados.';\n\n  const html = `<!doctype html>\n<html lang=\"pt-BR\">\n  <body style=\"margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827;\">\n    <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f3f4f6;padding:24px 12px;\">\n      <tr>\n        <td align=\"center\">\n          <table role=\"presentation\" width=\"640\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;width:100%;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;\">\n            <tr>\n              <td style=\"padding:20px 24px;border-bottom:1px solid #e5e7eb;\">\n                <h2 style=\"margin:0 0 8px 0;font-size:20px;line-height:1.3;\">Notificacao de Build</h2>\n                <span style=\"display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;background:${isSuccess ? '#dcfce7' : '#fee2e2'};color:${isSuccess ? '#166534' : '#991b1b'};\">\n                  ${escapeHtml(statusLabel)}\n                </span>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:20px 24px;\">\n                <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border-collapse:collapse;\">\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;width:170px;\">ID</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">${escapeHtml(data.id ?? data.build_number ?? 'N/A')}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Job</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">${escapeHtml(data.job_name ?? 'N/A')}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Release</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">${escapeHtml(data.release_tag ?? 'N/A')}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Imagem</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">${escapeHtml(data.image_name ?? 'N/A')}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Tags publicadas</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">${escapeHtml(publishedTags || 'N/A')}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Git SHA</td>\n                    <td style=\"padding:8px 0;font-family:monospace;font-size:13px;\">${escapeHtml(data.git_sha ?? 'N/A')}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Inicio</td>\n                    <td style=\"padding:8px 0;\">${escapeHtml(data.started_at ?? 'N/A')}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Fim</td>\n                    <td style=\"padding:8px 0;\">${escapeHtml(data.finished_at ?? 'N/A')}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Duracao</td>\n                    <td style=\"padding:8px 0;\">${escapeHtml(data.duration_ms ?? 'N/A')} ms</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Erro</td>\n                    <td style=\"padding:8px 0;color:#111827;\">${escapeHtml(errorSummary)}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Link</td>\n                    <td style=\"padding:8px 0;\">\n                      <a href=\"${escapeHtml(buildLink)}\" style=\"color:#2563eb;text-decoration:none;\">${escapeHtml(buildLinkLabel)}</a>\n                    </td>\n                  </tr>\n                </table>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:0 24px 24px 24px;\">\n                <a href=\"${escapeHtml(buildLink)}\" style=\"display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;font-size:14px;\">\n                  Abrir build\n                </a>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:14px 24px;background:#f9fafb;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;\">\n                Evento recebido em: ${escapeHtml(data.timestamp_utc ?? 'N/A')}\n              </td>\n            </tr>\n          </table>\n        </td>\n      </tr>\n    </table>\n  </body>\n</html>`;\n\n  return {\n    json: {\n      ...data,\n      email_html: html,\n    },\n  };\n});"
+      },
+      "id": "7",
+      "name": "Build Email HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        885,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "toEmail": "={{$env.N8N_ALERT_EMAIL_TO || 'ops@example.com'}}",
         "subject": "=[CI] {{$json.job_name}} #{{$json.build_number}} {{$json.status}}",
-        "emailType": "html",
-        "message": "=<!doctype html>\n<html lang=\"pt-BR\">\n  <body style=\"margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827;\">\n    <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:#f3f4f6;padding:24px 12px;\">\n      <tr>\n        <td align=\"center\">\n          <table role=\"presentation\" width=\"640\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width:640px;width:100%;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;\">\n            <tr>\n              <td style=\"padding:20px 24px;border-bottom:1px solid #e5e7eb;\">\n                <h2 style=\"margin:0 0 8px 0;font-size:20px;line-height:1.3;\">Notificacao de Build</h2>\n                <span style=\"display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;background:{{$json.status === 'success' ? '#dcfce7' : '#fee2e2'}};color:{{$json.status === 'success' ? '#166534' : '#991b1b'}};\">\n                  {{$json.status ? $json.status.toUpperCase() : 'N/A'}}\n                </span>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:20px 24px;\">\n                <table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"border-collapse:collapse;\">\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;width:170px;\">ID</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">{{$json.id || $json.build_number || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Job</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">{{$json.job_name || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Release</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">{{$json.release_tag || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Imagem</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">{{$json.image_name || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Tags publicadas</td>\n                    <td style=\"padding:8px 0;font-weight:600;\">{{$json.published_tags ? ($json.published_tags.join ? $json.published_tags.join(', ') : $json.published_tags) : 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Git SHA</td>\n                    <td style=\"padding:8px 0;font-family:monospace;font-size:13px;\">{{$json.git_sha || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Inicio</td>\n                    <td style=\"padding:8px 0;\">{{$json.started_at || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Fim</td>\n                    <td style=\"padding:8px 0;\">{{$json.finished_at || 'N/A'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Duracao</td>\n                    <td style=\"padding:8px 0;\">{{$json.duration_ms || 'N/A'}} ms</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Erro</td>\n                    <td style=\"padding:8px 0;color:{{$json.error_summary ? '#991b1b' : '#111827'}};\">{{$json.error_summary || 'Sem erros reportados.'}}</td>\n                  </tr>\n                  <tr>\n                    <td style=\"padding:8px 0;color:#6b7280;\">Link</td>\n                    <td style=\"padding:8px 0;\">\n                      <a href=\"{{$json.link || $json.build_url || '#'}}\" style=\"color:#2563eb;text-decoration:none;\">{{$json.link || $json.build_url || 'N/A'}}</a>\n                    </td>\n                  </tr>\n                </table>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:0 24px 24px 24px;\">\n                <a href=\"{{$json.link || $json.build_url || '#'}}\" style=\"display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;font-size:14px;\">\n                  Abrir build\n                </a>\n              </td>\n            </tr>\n            <tr>\n              <td style=\"padding:14px 24px;background:#f9fafb;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;\">\n                Evento recebido em: {{$json.timestamp_utc || 'N/A'}}\n              </td>\n            </tr>\n          </table>\n        </td>\n      </tr>\n    </table>\n  </body>\n</html>"
+        "html": "={{$json.email_html}}"
       },
       "id": "4",
       "name": "Send Email",
@@ -108,7 +133,18 @@
       "main": [
         [
           {
-            "node": "Send Email",
+            "node": "Set Public Build Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Public Build Link": {
+      "main": [
+        [
+          {
+            "node": "Build Email HTML",
             "type": "main",
             "index": 0
           }
@@ -120,6 +156,17 @@
         [
           {
             "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email HTML": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
             "type": "main",
             "index": 0
           }

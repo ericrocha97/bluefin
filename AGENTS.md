@@ -122,7 +122,7 @@ Signing is DISABLED by default. First builds succeed immediately. Enable later f
 │   └── rclone/          # Upload configs (Cloudflare R2, AWS S3, etc.)
 ├── .github/              # GitHub configuration and CI/CD
 │   ├── workflows/       # GitHub Actions workflows
-│   │   ├── build.yml               # Builds :stable on main
+│   │   ├── build.yml               # PR check only (no publish)
 │   │   ├── clean.yml               # Deletes images >90 days old
 │   │   ├── renovate.yml            # Renovate bot updates (6h interval)
 │   │   ├── validate-*.yml          # Pre-merge validation checks
@@ -185,7 +185,7 @@ This template follows the **Bluefin architecture pattern** from @projectbluefin/
 
 - **main** = Production releases ONLY. Never push directly. Builds `:stable` images.
 - **Conventional Commits** = REQUIRED. `feat:`, `fix:`, `chore:`, etc.
-- **Workflows** = All validation happens on PRs. Merging to main triggers stable builds.
+- **Workflows** = Validation happens on PRs; official image build/publish is handled by Jenkins (`Jenkinsfile`).
 
 ### Validation Workflows
 
@@ -584,7 +584,7 @@ bootc switch --mutate-in-place --transport registry ghcr.io/USERNAME/REPO:stable
 
 **Workflows**:
 
-- `build.yml` - Builds `:stable` on main
+- `build.yml` - PR check only (does not publish image)
 - `renovate.yml` - Monitors base image updates (every 6 hours)
 - `clean.yml` - Deletes images >90 days (weekly)
 - `validate-*.yml` - Pre-merge validation (shellcheck, Brewfile, Flatpak, etc.)
@@ -733,7 +733,7 @@ COSIGN_PASSWORD="" cosign generate-key-pair
 | PR validation fails: Brewfile | Invalid Brewfile syntax | Check Ruby syntax, ensure packages exist |
 | PR validation fails: Flatpak | Invalid app ID | Verify app ID exists on <https://flathub.org/> |
 | PR validation fails: justfile | Invalid just syntax | Run `just --list` locally to test |
-| Changes not in production | Wrong workflow | Push to main (via PR) to trigger stable builds |
+| Changes not in production | Wrong workflow | Verify Jenkins job execution and `Jenkinsfile` branch/trigger configuration |
 | ISO missing customizations | Wrong bootc URL | Update `iso/iso.toml` bootc switch URL to match repo |
 | COPR packages missing after boot | COPR not disabled | COPRs persist if not disabled - use `copr_install_isolated` |
 | ujust commands not working | Wrong install location | Files must be in `custom/ujust/` and copied to `/usr/share/ublue-os/just/` |
@@ -964,10 +964,14 @@ See `build/copr-install-functions.sh` for reusable patterns:
 **CI builds** (GitHub Actions):
 
 - Uses GitHub runners
-- Automatic on push/PR
+- Runs on pull requests to `main` (PR check only)
 - Includes validation steps
-- Can include signing
-- Automatic push to ghcr.io
+- Can include signing logic for future reuse, but does not publish in current PR-check mode
+
+**Production builds** (Jenkins):
+
+- Uses self-hosted Jenkins pipeline (`Jenkinsfile`)
+- Handles official build, GHCR publish, and release automation
 
 ### Image Layers and Caching
 
@@ -1028,7 +1032,7 @@ When user requests customization, check in this order:
 
 **Modify with extreme caution**:
 
-- `.github/workflows/build.yml` - Core build workflow
+- `.github/workflows/build.yml` - PR check workflow (non-publishing)
 - `.github/workflows/clean.yml` - Image cleanup
 - `Justfile` - Local build automation (users rely on these commands)
 

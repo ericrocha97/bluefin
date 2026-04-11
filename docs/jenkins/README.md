@@ -17,6 +17,11 @@ O pipeline definido em `Jenkinsfile` executa este fluxo:
 - `Create GitHub Release`: cria/atualiza release e anexa `manifest.txt`.
 - `post { success/failure }`: envia payload para n8n usando `ci/jenkins/scripts/notify_n8n.sh`.
 
+Contexto atual de CI/CD:
+
+- O Jenkins é o pipeline oficial para build e publicação.
+- O GitHub Actions em `.github/workflows/build.yml` roda apenas como check de PR (`pull_request` para `main`) e não publica imagem/release.
+
 Notificação para n8n é **best effort**: se o webhook falhar, o pipeline registra warning, mas não invalida o build já concluído.
 
 ## 2) Pré-requisitos no servidor Jenkins

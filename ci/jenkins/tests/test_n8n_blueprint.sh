@@ -26,6 +26,8 @@ required_nodes = [
     "Webhook Trigger",
     "Validate Payload",
     "Postgres Upsert",
+    "Set Public Build Link",
+    "Build Email HTML",
     "Send Email",
     "Respond Success",
 ]
@@ -59,7 +61,9 @@ for source, source_payload in connections.items():
 required_edges = [
     ("Webhook Trigger", "Validate Payload"),
     ("Validate Payload", "Postgres Upsert"),
-    ("Postgres Upsert", "Send Email"),
+    ("Postgres Upsert", "Set Public Build Link"),
+    ("Set Public Build Link", "Build Email HTML"),
+    ("Build Email HTML", "Send Email"),
     ("Send Email", "Respond Success"),
 ]
 
@@ -92,6 +96,28 @@ if "{{$json." in query:
     )
     sys.exit(1)
 
+required_returning_patterns = [
+    "RETURNING id, job_name, build_number, status,",
+    "build_url,",
+    "git_sha,",
+    "image_name,",
+    "release_tag,",
+    "started_at,",
+    "finished_at,",
+    "duration_ms,",
+    "published_tags,",
+    "payload->>'timestamp_utc' AS timestamp_utc,",
+    "payload->>'error_summary' AS error_summary,",
+]
+
+for pattern in required_returning_patterns:
+    if pattern not in query:
+        print(
+            f"ASSERTION FAILED: Postgres Upsert RETURNING missing pattern '{pattern}'",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
 validate_node = next(
     (node for node in nodes if isinstance(node, dict) and node.get("name") == "Validate Payload"),
     None,
@@ -118,6 +144,92 @@ for pattern in required_validate_patterns:
             file=sys.stderr,
         )
         sys.exit(1)
+
+set_public_link_node = next(
+    (node for node in nodes if isinstance(node, dict) and node.get("name") == "Set Public Build Link"),
+    None,
+)
+if set_public_link_node is None:
+    print("ASSERTION FAILED: missing Set Public Build Link node", file=sys.stderr)
+    sys.exit(1)
+
+set_public_link_params = set_public_link_node.get("parameters", {})
+set_public_link_code = (
+    set_public_link_params.get("jsCode") if isinstance(set_public_link_params, dict) else None
+)
+if not isinstance(set_public_link_code, str):
+    print("ASSERTION FAILED: Set Public Build Link jsCode must be a string", file=sys.stderr)
+    sys.exit(1)
+
+required_public_link_patterns = [
+    "JENKINS_PUBLIC_URL",
+    "http://casaos.local:18080/",
+    "link:",
+]
+
+for pattern in required_public_link_patterns:
+    if pattern not in set_public_link_code:
+        print(
+            f"ASSERTION FAILED: Set Public Build Link jsCode missing pattern '{pattern}'",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+build_email_html_node = next(
+    (node for node in nodes if isinstance(node, dict) and node.get("name") == "Build Email HTML"),
+    None,
+)
+if build_email_html_node is None:
+    print("ASSERTION FAILED: missing Build Email HTML node", file=sys.stderr)
+    sys.exit(1)
+
+build_email_html_params = build_email_html_node.get("parameters", {})
+build_email_html_code = (
+    build_email_html_params.get("jsCode") if isinstance(build_email_html_params, dict) else None
+)
+if not isinstance(build_email_html_code, str):
+    print("ASSERTION FAILED: Build Email HTML jsCode must be a string", file=sys.stderr)
+    sys.exit(1)
+
+required_email_html_patterns = [
+    "<!doctype html>",
+    "Notificacao de Build",
+    "Sem erros reportados.",
+    "email_html",
+]
+
+for pattern in required_email_html_patterns:
+    if pattern not in build_email_html_code:
+        print(
+            f"ASSERTION FAILED: Build Email HTML jsCode missing pattern '{pattern}'",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+send_email_node = next(
+    (node for node in nodes if isinstance(node, dict) and node.get("name") == "Send Email"),
+    None,
+)
+if send_email_node is None:
+    print("ASSERTION FAILED: missing Send Email node", file=sys.stderr)
+    sys.exit(1)
+
+send_email_params = send_email_node.get("parameters", {})
+if not isinstance(send_email_params, dict):
+    print("ASSERTION FAILED: Send Email parameters must be an object", file=sys.stderr)
+    sys.exit(1)
+
+send_email_html = send_email_params.get("html")
+if not isinstance(send_email_html, str):
+    print("ASSERTION FAILED: Send Email html must be a string", file=sys.stderr)
+    sys.exit(1)
+
+if send_email_html.strip() != "={{$json.email_html}}":
+    print(
+        "ASSERTION FAILED: Send Email html must reference $json.email_html",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 print("PASS: test_n8n_blueprint.sh")
 PY
