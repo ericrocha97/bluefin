@@ -94,8 +94,17 @@ dnf5 install -y --nogpgcheck --repofrompath "terra,https://repos.fyralabs.com/te
 log_info "Installing vicinae package from Terra..."
 if ! dnf5 install -y vicinae; then
     log_warn "Terra installation failed (metadata/mirror issue). Falling back to COPR..."
+
     dnf5 clean all
-    copr_install_isolated "quadratech188/vicinae" vicinae
+
+    log_info "Enabling Vicinae COPR with dependency repositories..."
+    dnf5 -y copr enable quadratech188/vicinae
+
+    log_info "Installing vicinae from COPR..."
+    dnf5 install -y vicinae
+
+    log_info "Disabling Vicinae COPR repositories after installation..."
+    dnf5 -y copr disable quadratech188/vicinae || true
 fi
 
 # Verify installation
