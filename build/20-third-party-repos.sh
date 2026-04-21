@@ -91,8 +91,12 @@ log_step "Installing Vicinae..."
 log_info "Installing official Terra release package..."
 dnf5 install -y --nogpgcheck --repofrompath "terra,https://repos.fyralabs.com/terra\$releasever" terra-release
 
-log_info "Installing vicinae package..."
-dnf5 install -y vicinae
+log_info "Installing vicinae package from Terra..."
+if ! dnf5 install -y vicinae; then
+    log_warn "Terra installation failed (metadata/mirror issue). Falling back to COPR..."
+    dnf5 clean all
+    copr_install_isolated "quadratech188/vicinae" vicinae
+fi
 
 # Verify installation
 verify_package "vicinae"
