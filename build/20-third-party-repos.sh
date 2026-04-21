@@ -88,26 +88,27 @@ echo "::endgroup::"
 echo "::group:: Install Vicinae"
 log_step "Installing Vicinae..."
 
-# Terra repo definition pinned to terrapkg/subatomic-repos@6672af7a7125aef3400606dc9da174cfe423a0a1
-# Note: repository contents are still rolling; this only pins the repo file.
-log_info "Adding Terra repository (Bazzite-compatible)..."
-install -m 0644 /ctx/build/terra.repo /etc/yum.repos.d/terra.repo
+log_info "Installing official Terra release package..."
+dnf5 install -y --nogpgcheck --repofrompath "terra,https://repos.fyralabs.com/terra\$releasever" terra-release
 
-log_info "Importing Terra GPG key..."
-releasever=$(rpm --eval '%{fedora}' 2>/dev/null || true)
-if [[ -z "$releasever" ]]; then
-    releasever=$(grep -E '^VERSION_ID=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"')
+log_info "Installing vicinae package from Terra..."
+if ! dnf5 install -y vicinae; then
+    log_warn "Terra installation failed (metadata/mirror issue). Falling back to COPR..."
+
+    dnf5 clean all
+
+    log_info "Enabling Vicinae COPR with dependency repositories..."
+    dnf5 -y copr enable quadratech188/vicinae
+
+    log_info "Installing vicinae from COPR..."
+    dnf5 install -y vicinae
+
+    log_info "Disabling Vicinae COPR repositories after installation..."
+    dnf5 -y copr disable quadratech188/vicinae || true
 fi
-rpm --import "https://repos.fyralabs.com/terra${releasever}/key.asc"
-
-log_info "Installing vicinae package..."
-dnf5 install -y vicinae
 
 # Verify installation
 verify_package "vicinae"
-
-log_info "Cleaning up Terra repository file..."
-rm -f /etc/yum.repos.d/terra.repo
 
 log_success "Vicinae installation complete"
 echo "::endgroup::"
