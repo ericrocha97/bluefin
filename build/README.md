@@ -18,7 +18,7 @@ This directory contains build scripts that run during image creation. Scripts ar
 
 ## Included Repo Files
 
-- **`terra.repo`** - Pinned Terra repository definition used by `20-third-party-repos.sh` to install Vicinae.
+- **`terra.repo`** - Legacy Terra repository definition kept for reference; Vicinae installation in `20-third-party-repos.sh` now uses the official `terra-release` package flow.
 
 ## Custom Files (Brewfiles and ujust)
 
