@@ -200,6 +200,10 @@ The image boots to COSMIC Greeter and starts the COSMIC Wayland session. GNOME i
 <details>
 <summary>View screenshots</summary>
 
+### COSMIC Greeter
+
+![COSMIC Greeter](https://raw.githubusercontent.com/ericrocha97/bluefin/main/docs/images/cosmic-greeter.png)
+
 ### COSMIC desktop
 
 ![COSMIC desktop](https://raw.githubusercontent.com/ericrocha97/bluefin/main/docs/images/cosmic-desktop.png)

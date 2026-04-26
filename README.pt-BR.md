@@ -196,6 +196,10 @@ A imagem inicia no COSMIC Greeter e abre a sessão Wayland do COSMIC. GNOME inte
 <details>
 <summary>Ver screenshots</summary>
 
+### COSMIC Greeter
+
+![COSMIC Greeter](https://raw.githubusercontent.com/ericrocha97/bluefin/main/docs/images/cosmic-greeter.png)
+
 ### Desktop COSMIC
 
 ![Desktop COSMIC](https://raw.githubusercontent.com/ericrocha97/bluefin/main/docs/images/cosmic-desktop.png)
