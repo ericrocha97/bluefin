@@ -227,7 +227,12 @@ gh release upload "$release_tag" "$MANIFEST_FILE" --clobber
     }
 
     post {
-        success {
+        always {
+            script {
+                def result = (currentBuild.currentResult ?: 'SUCCESS').toUpperCase()
+                env.N8N_STATUS = result == 'SUCCESS' ? 'success' : 'failure'
+                env.N8N_ERROR_SUMMARY = result == 'SUCCESS' ? '' : 'Pipeline failed before completion.'
+            }
             withCredentials([
                 string(credentialsId: 'n8n-webhook-url', variable: 'WEBHOOK_URL'),
                 string(credentialsId: 'n8n-webhook-token', variable: 'N8N_WEBHOOK_SHARED_TOKEN')
@@ -235,7 +240,11 @@ gh release upload "$release_tag" "$MANIFEST_FILE" --clobber
                 sh '''#!/usr/bin/env bash
 set -euo pipefail
 
-published_tags="$(paste -sd, "$TAGS_FILE")"
+published_tags=""
+if [[ -f "$TAGS_FILE" ]]; then
+  published_tags="$(paste -sd, "$TAGS_FILE")"
+fi
+
 finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 build_started_at="${BUILD_STARTED_AT:-}"
 if [[ -z "$build_started_at" && -f ci/jenkins/build/started_at ]]; then
@@ -260,67 +269,29 @@ finished_epoch="$(date -u -d "$finished_at" +%s 2>/dev/null || printf '0')"
 duration_ms="$(( (finished_epoch - started_epoch) * 1000 ))"
 if (( duration_ms < 0 )); then duration_ms=0; fi
 
-export STATUS="success"
+export STATUS="${N8N_STATUS:-failure}"
 export JOB_NAME="$JOB_NAME"
 export BUILD_NUMBER="$BUILD_NUMBER"
 export BUILD_URL="$BUILD_URL"
 git_sha="${GIT_COMMIT:-${GIT_PREVIOUS_SUCCESSFUL_COMMIT:-unknown}}"
 export GIT_SHA="$git_sha"
 export IMAGE_NAME="$IMAGE_REPOSITORY"
-export PUBLISHED_TAGS="${published_tags:-$short_date}"
+if [[ "$STATUS" == "success" ]]; then
+  export PUBLISHED_TAGS="${published_tags:-$short_date}"
+else
+  export PUBLISHED_TAGS=""
+fi
 export TIMESTAMP_UTC="$finished_at"
-export ERROR_SUMMARY=""
+export ERROR_SUMMARY="${N8N_ERROR_SUMMARY:-}"
 export STARTED_AT="$build_started_at"
 export FINISHED_AT="$finished_at"
 export DURATION_MS="$duration_ms"
 export RELEASE_TAG="${release_tag:-unknown}"
 if ! bash ci/jenkins/scripts/notify_n8n.sh; then
-  echo "WARN: notify_n8n.sh failed in post-success hook (best-effort notification)." >&2
+  echo "WARN: notify_n8n.sh failed in post hook (best-effort notification)." >&2
 fi
 '''
             }
-        }
-        failure {
-            withCredentials([
-                string(credentialsId: 'n8n-webhook-url', variable: 'WEBHOOK_URL'),
-                string(credentialsId: 'n8n-webhook-token', variable: 'N8N_WEBHOOK_SHARED_TOKEN')
-            ]) {
-                sh '''#!/usr/bin/env bash
-set -euo pipefail
-
-finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-started_at="${BUILD_STARTED_AT:-}"
-if [[ -z "$started_at" && -f ci/jenkins/build/started_at ]]; then
-  started_at="$(<ci/jenkins/build/started_at)"
-fi
-if [[ -z "$started_at" ]]; then
-  started_at="$finished_at"
-fi
-started_epoch="$(date -u -d "$started_at" +%s 2>/dev/null || printf '0')"
-finished_epoch="$(date -u -d "$finished_at" +%s 2>/dev/null || printf '0')"
-duration_ms="$(( (finished_epoch - started_epoch) * 1000 ))"
-if (( duration_ms < 0 )); then duration_ms=0; fi
-
-export STATUS="failure"
-export JOB_NAME="$JOB_NAME"
-export BUILD_NUMBER="$BUILD_NUMBER"
-export BUILD_URL="$BUILD_URL"
-export GIT_SHA="${GIT_COMMIT:-unknown}"
-export IMAGE_NAME="$IMAGE_REPOSITORY"
-export PUBLISHED_TAGS=""
-export TIMESTAMP_UTC="$finished_at"
-export ERROR_SUMMARY="Pipeline failed before completion."
-export STARTED_AT="$started_at"
-export FINISHED_AT="$finished_at"
-export DURATION_MS="$duration_ms"
-export RELEASE_TAG="${RELEASE_TAG:-unknown}"
-if ! bash ci/jenkins/scripts/notify_n8n.sh; then
-  echo "WARN: notify_n8n.sh failed in post-failure hook (best-effort notification)." >&2
-fi
-'''
-            }
-        }
-        always {
             archiveArtifacts artifacts: 'ci/jenkins/build/*', allowEmptyArchive: true
         }
     }
