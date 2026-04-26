@@ -7,7 +7,7 @@ This project was created using the finpilot template: <https://github.com/projec
 
 Portuguese version: [README.pt-BR.md](README.pt-BR.md)
 
-It builds a custom bootc image based on Bluefin DX, using the multi-stage OCI pattern from the Bluefin ecosystem.
+It builds a COSMIC-only custom bootc image based on Bluefin DX, using the multi-stage OCI pattern from the Bluefin ecosystem.
 
 ## Build and Publish
 
@@ -38,7 +38,9 @@ Here are the changes from Bluefin DX. This image is based on Bluefin and include
 
 ### Removed/Disabled
 
-- None.
+- **GNOME desktop session**: Removed so COSMIC is the only login session.
+- **GDM**: Disabled/removed in favor of COSMIC Greeter.
+- **GNOME-specific mutter tuning**: Removed because GNOME is no longer shipped as a desktop session.
 
 ### System Optimizations (CachyOS/LinuxToys)
 
@@ -49,30 +51,31 @@ Here are the changes from Bluefin DX. This image is based on Bluefin and include
 - **journald**: Journal size limited to 50MB
 - **earlyoom**: 5% memory/swap threshold, D-Bus notifications
 - **Auto-updates**: rpm-ostreed AutomaticUpdatePolicy=stage
-- **GNOME**: mutter check-alive-timeout set to 20s
 - **Fastfetch**: Custom config showing image name/version, COSMIC version, and build date (overrides upstream Bluefin config)
 
 ### Configuration Changes
 
-- Dual desktop sessions available in GDM (GNOME and COSMIC).
+- COSMIC Greeter is enabled as the default login manager.
+- COSMIC is the only desktop session presented at login.
 - Custom ujust commands available: install-nvm, install-sdkman, install-dev-managers.
 
-*Last updated: 2026-03-14*
+*Last updated: 2026-04-24*
 
 ## What is this image
 
-bluefin-cosmic-dx is a developer-focused Bluefin image with **GNOME + COSMIC dual desktop** support. You can choose which desktop environment to use at the login screen.
+bluefin-cosmic-dx is a developer-focused Bluefin DX image that keeps the Bluefin DX base and ships COSMIC as the only desktop environment.
 
 ## What changes in this version
 
-Based on **Bluefin DX**, this image adds:
+Based on **Bluefin DX**, this image adds and changes:
 
-- **COSMIC desktop** (System76) as an alternative to GNOME
+- **COSMIC desktop** (System76) as the only desktop session
+- **COSMIC Greeter** as the login manager
+- **GNOME desktop session removed** from the final image
 - **VSCode Insiders** installed via RPM
 - **Warp Terminal** installed via RPM
 - **Vicinae** installed via Terra repo (Bazzite-compatible)
-- **Dual desktop support**: Choose GNOME or COSMIC at login (GDM)
-- All Bluefin DX features (containers, DevPods, CLI tools, etc.)
+- All Bluefin DX development features that remain compatible with the COSMIC-only desktop target
 
 Base image: `ghcr.io/ublue-os/bluefin-dx:stable-daily`
 
@@ -164,20 +167,17 @@ Image signing is optional. The repository keeps Cosign signing steps in `.github
 
 If you decide to re-enable GitHub Actions release builds later, these signing steps can be reactivated there. For the current production flow, Jenkins is responsible for build/publish.
 
-## Choosing Desktop at Login
+## COSMIC Login
 
-At the GDM login screen, click the **⚙️ gear icon** to select:
-
-- **GNOME** - Default Bluefin desktop
-- **COSMIC** - System76's new desktop environment
+The image boots to COSMIC Greeter and starts the COSMIC Wayland session. GNOME is intentionally not offered as a login option.
 
 ## Troubleshooting
 
-### COSMIC session does not appear in GDM
+### COSMIC session does not appear
 
 1. Verify packages: `rpm -qa | grep -i cosmic`
 2. Check session file: `ls /usr/share/wayland-sessions/cosmic.desktop`
-3. Restart GDM: `sudo systemctl restart gdm`
+3. Check COSMIC Greeter: `systemctl status cosmic-greeter`
 
 ### VSCode or Warp fails to start
 
@@ -200,16 +200,8 @@ At the GDM login screen, click the **⚙️ gear icon** to select:
 <details>
 <summary>View screenshots</summary>
 
-### GDM session selector
-
-![GDM session selector](https://raw.githubusercontent.com/ericrocha97/bluefin/main/docs/images/gdm-selector.png)
-
 ### COSMIC desktop
 
 ![COSMIC desktop](https://raw.githubusercontent.com/ericrocha97/bluefin/main/docs/images/cosmic-desktop.png)
-
-### GNOME desktop
-
-![GNOME desktop](https://raw.githubusercontent.com/ericrocha97/bluefin/main/docs/images/gnome-desktop.png)
 
 </details>

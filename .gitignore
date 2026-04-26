@@ -4,3 +4,7 @@ output
 _build-*/**
 *.log
 .worktrees/
+
+*.txt
+
+docs/superpowers/
