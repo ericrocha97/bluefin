@@ -22,6 +22,13 @@ just build-qcow2
 just run-vm-qcow2
 ```
 
+Default local VM login credentials for QCOW2/RAW test images:
+
+- Username: `user`
+- Password: `user`
+
+Change the user password hash in `iso/disk.toml` before distributing artifacts.
+
 Build a RAW VM image:
 
 ```bash

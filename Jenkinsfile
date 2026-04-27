@@ -228,6 +228,7 @@ gh release upload "$release_tag" "$MANIFEST_FILE" --clobber
 
     post {
         always {
+            archiveArtifacts artifacts: 'ci/jenkins/build/*', allowEmptyArchive: true
             script {
                 def result = (currentBuild.currentResult ?: 'SUCCESS').toUpperCase()
                 env.N8N_STATUS = result == 'SUCCESS' ? 'success' : 'failure'
@@ -292,7 +293,6 @@ if ! bash ci/jenkins/scripts/notify_n8n.sh; then
 fi
 '''
             }
-            archiveArtifacts artifacts: 'ci/jenkins/build/*', allowEmptyArchive: true
         }
     }
 }

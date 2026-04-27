@@ -5,5 +5,7 @@ minsize = "20 GiB"
 [[customizations.user]]
 name = "user"
 description = "user"
-password = ""
+# Default local VM login password is "user" (SHA-512 hash below).
+# Change this hash for your own local testing before distributing artifacts.
+password = "$6$zTtLrcd2ocxh3WdL$Nyw/OT9D6Erg.9LN11aSlIMQVCFZgwrJUDkiwJjye.H5zjPZAK7UjBXK.AK2uKocZd4nrE2p3zcShTjuRwk9o."
 groups = ["wheel"]
