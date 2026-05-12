@@ -9,7 +9,7 @@ This directory contains build scripts that run during image creation. Scripts ar
 
 ## Included Scripts
 
-- **`10-build.sh`** - Main build script. Copies Flatpak preinstall files, installs `copr-cli`, `earlyoom`, `ffmpegthumbnailer`, and `libvdpau-va-gl`, enables `podman.socket`, and runs the other numbered scripts.
+- **`10-build.sh`** - Main build script. Copies Flatpak preinstall files, installs `copr-cli`, `earlyoom`, and `ffmpegthumbnailer`, optionally installs `libvdpau-va-gl` when available, enables `podman.socket`, and runs the other numbered scripts.
 - **`15-system-optimizations.sh`** - Installs CachyOS/LinuxToys system optimizations (sysctl, udev, modprobe, tmpfiles, journald), configures earlyoom, rpm-ostreed auto-updates, and GNOME tweaks.
 - **`20-third-party-repos.sh`** - Installs VSCode Insiders, Warp Terminal, and Vicinae (official Terra bootstrap with COPR fallback) from RPM repos.
 - **`30-cosmic-desktop.sh`** - Installs COSMIC desktop from System76's COPR repository.
