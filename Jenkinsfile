@@ -232,7 +232,7 @@ gh release upload "$release_tag" "$MANIFEST_FILE" --clobber
             script {
                 def result = (currentBuild.currentResult ?: 'SUCCESS').toUpperCase()
                 env.N8N_STATUS = result == 'SUCCESS' ? 'success' : 'failure'
-                env.N8N_ERROR_SUMMARY = result == 'SUCCESS' ? '' : 'Pipeline failed before completion.'
+                env.N8N_ERROR_SUMMARY = result == 'SUCCESS' ? '' : "Pipeline finished with result: ${result}."
             }
             withCredentials([
                 string(credentialsId: 'n8n-webhook-url', variable: 'WEBHOOK_URL'),
