@@ -89,11 +89,20 @@ log_success "ffmpegthumbnailer installed"
 
 log_info "Multimedia codecs already provided by base image (negativo17/fedora-multimedia)"
 
-# libvdpau-va-gl is available from Fedora's standard repos (not RPM Fusion)
-log_info "Installing additional multimedia packages from Fedora repos..."
-dnf5 install -y libvdpau-va-gl
-verify_package "libvdpau-va-gl"
-log_success "Additional multimedia packages installed"
+# libvdpau-va-gl is optional and may be unavailable in newer Fedora releases
+log_info "Installing additional multimedia packages from Fedora repos (optional)..."
+if install_output=$(dnf5 install -y libvdpau-va-gl 2>&1); then
+    verify_package "libvdpau-va-gl"
+    log_success "Additional multimedia packages installed"
+else
+    if [[ "${install_output}" == *"No match for argument: libvdpau-va-gl"* ]]; then
+        log_warn "libvdpau-va-gl unavailable for this Fedora release, skipping optional package"
+    else
+        log_error "Failed to install libvdpau-va-gl"
+        printf '%s\n' "${install_output}" >&2
+        exit 1
+    fi
+fi
 
 echo "::endgroup::"
 

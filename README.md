@@ -28,7 +28,7 @@ Here are the changes from Bluefin DX. This image is based on Bluefin and include
   - Desktop portal integration (xdg-desktop-portal-cosmic)
 - **CLI Tools**: copr-cli (COPR repository management and monitoring)
 - **System Tools**: earlyoom (OOM prevention), ffmpegthumbnailer (video thumbnails)
-- **Codecs**: Full multimedia codecs via negativo17/fedora-multimedia (base image), libvdpau-va-gl
+- **Codecs**: Full multimedia codecs via negativo17/fedora-multimedia (base image), plus optional `libvdpau-va-gl` when available in Fedora repos
 - **Third-party apps**: VSCode Insiders, Warp Terminal, Vicinae
 
 ### Added Applications (Runtime)
