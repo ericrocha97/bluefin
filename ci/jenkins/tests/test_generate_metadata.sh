@@ -29,6 +29,16 @@ assert_equals "$expected_tags" "$actual_tags" "Tags file should exactly match ex
 
 assert_file_contains "$LABELS_FILE" "org.opencontainers.image.created=2026-04-03T10:05:00Z"
 assert_file_contains "$LABELS_FILE" "org.opencontainers.image.title=bluefin-cosmic-dx"
+assert_file_contains "$LABELS_FILE" "org.opencontainers.image.description=My Customized Universal Blue Image With Cosmic DX Features"
+assert_file_contains "$LABELS_FILE" "org.opencontainers.image.source=https://github.com/"
+assert_file_contains "$LABELS_FILE" "org.opencontainers.image.url=https://github.com/"
+assert_file_contains "$LABELS_FILE" "org.opencontainers.image.vendor=ericrocha97"
+assert_file_contains "$LABELS_FILE" "org.opencontainers.image.version=stable.20260403"
+assert_file_contains "$LABELS_FILE" "io.artifacthub.package.readme-url=https://raw.githubusercontent.com/"
+assert_file_contains "$LABELS_FILE" "io.artifacthub.package.deprecated=false"
+assert_file_contains "$LABELS_FILE" "io.artifacthub.package.keywords=bootc,ublue,universal-blue,cosmic,cosmic-dx,custom-image"
+assert_file_contains "$LABELS_FILE" "io.artifacthub.package.license=Apache-2.0"
+assert_file_contains "$LABELS_FILE" "io.artifacthub.package.prerelease=false"
 assert_file_contains "$LABELS_FILE" "containers.bootc=1"
 
 printf 'PASS: test_generate_metadata.sh\n'
