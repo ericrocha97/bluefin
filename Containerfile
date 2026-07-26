@@ -44,7 +44,7 @@ COPY custom /custom
 COPY --from=ghcr.io/projectbluefin/common:latest /system_files /oci/common
 COPY --from=ghcr.io/ublue-os/brew:latest /system_files /oci/brew
 
-# Base Image - Bluefin DX with GNOME (COSMIC will be added as alternative)
+# Base Image - Bluefin DX (GNOME is removed in 40-remove-gnome.sh, leaving only COSMIC)
 FROM ghcr.io/ublue-os/bluefin-dx:stable-daily
 
 ## Alternative base images, no desktop included (uncomment to use):
