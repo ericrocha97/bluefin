@@ -3,11 +3,10 @@
 set -eoux pipefail
 
 ###############################################################################
-# Install COSMIC Desktop (System76) alongside GNOME
+# Install COSMIC Desktop (System76)
 ###############################################################################
 # This script installs COSMIC from the System76 COPR repository.
-# Base image is bluefin-dx:stable-daily which includes GNOME.
-# COSMIC is installed as an additional desktop option, selectable at login.
+# GNOME removal and display-manager switching happen later in 40-remove-gnome.sh.
 ###############################################################################
 
 # Source helper functions (includes logging utilities)
@@ -23,7 +22,7 @@ else
 fi
 
 log_section "Installing COSMIC Desktop"
-log_info "COSMIC will be installed alongside GNOME (dual desktop setup)"
+log_info "COSMIC will be installed as the only desktop session in the final image"
 
 ###############################################################################
 # Install COSMIC Packages
@@ -31,7 +30,6 @@ log_info "COSMIC will be installed alongside GNOME (dual desktop setup)"
 
 echo "::group:: Install COSMIC Desktop"
 
-# Define COSMIC packages to install
 COSMIC_PACKAGES=(
     cosmic-session
     cosmic-greeter
@@ -59,8 +57,6 @@ COSMIC_PACKAGES=(
 log_step "Installing COSMIC packages from COPR ryanabx/cosmic-epoch..."
 log_info "Packages to install: ${COSMIC_PACKAGES[*]}"
 
-# Install COSMIC desktop from System76's COPR
-# Using isolated pattern to prevent COPR from persisting
 copr_install_isolated "ryanabx/cosmic-epoch" "${COSMIC_PACKAGES[@]}"
 
 echo "::endgroup::"
@@ -72,7 +68,6 @@ echo "::endgroup::"
 echo "::group:: Verify COSMIC Installation"
 log_step "Verifying COSMIC package installation..."
 
-# Verify all installed COSMIC packages
 verification_failed=0
 for pkg in "${COSMIC_PACKAGES[@]}"; do
     if ! verify_package "$pkg"; then
@@ -85,43 +80,16 @@ if [[ $verification_failed -eq 1 ]]; then
     exit 1
 fi
 
-log_success "All COSMIC packages verified successfully"
-echo "::endgroup::"
-
-###############################################################################
-# Configure Display Manager
-###############################################################################
-
-echo "::group:: Configure Display Manager"
-log_step "Configuring display manager for dual desktop support..."
-
-# Keep GDM as default display manager (comes with bluefin-dx)
-# User can choose between GNOME and COSMIC at login screen
-log_info "GDM will remain as default display manager"
-log_info "Users can select COSMIC or GNOME from the gear icon at login"
-
-# Verify COSMIC session file exists
 if [[ -f /usr/share/wayland-sessions/cosmic.desktop ]]; then
     log_success "COSMIC session registered: /usr/share/wayland-sessions/cosmic.desktop"
 else
-    log_warn "COSMIC session file not found at expected location"
-    log_info "Checking alternative locations..."
-    find /usr/share -name "cosmic*.desktop" 2>/dev/null | while read -r session_file; do
-        log_info "Found session file: $session_file"
-    done
+    log_error "COSMIC session file not found at /usr/share/wayland-sessions/cosmic.desktop"
+    log_info "Available COSMIC desktop files:"
+    find /usr/share -name "cosmic*.desktop" 2>/dev/null || true
+    exit 1
 fi
 
-# List available sessions
-log_info "Available desktop sessions:"
-if [[ -d /usr/share/wayland-sessions ]]; then
-    for session in /usr/share/wayland-sessions/*.desktop; do
-        if [[ -f "$session" ]]; then
-            session_name=$(grep -E "^Name=" "$session" 2>/dev/null | cut -d= -f2 || basename "$session")
-            log_info "  - $session_name ($(basename "$session"))"
-        fi
-    done
-fi
-
+log_success "All COSMIC packages verified successfully"
 echo "::endgroup::"
 
 ###############################################################################
@@ -129,12 +97,5 @@ echo "::endgroup::"
 ###############################################################################
 
 log_section "COSMIC Desktop Installation Complete"
-log_success "COSMIC desktop installed successfully as secondary desktop"
-log_info ""
-log_info "Desktop selection instructions:"
-log_info "  1. At the GDM login screen, click the gear icon (⚙️)"
-log_info "  2. Select 'COSMIC' or 'GNOME' session"
-log_info "  3. Enter your password to log in"
-log_info ""
-log_info "To switch default display manager to COSMIC Greeter (optional):"
-log_info "  sudo systemctl disable gdm && sudo systemctl enable cosmic-greeter"
+log_success "COSMIC desktop installed successfully"
+log_info "GNOME removal and COSMIC Greeter activation will run in 40-remove-gnome.sh"

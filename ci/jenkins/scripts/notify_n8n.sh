@@ -19,8 +19,6 @@ error_summary="${ERROR_SUMMARY:-}"
 dry_run="${DRY_RUN:-false}"
 curl_connect_timeout="${N8N_NOTIFY_CONNECT_TIMEOUT_SECONDS:-5}"
 curl_max_time="${N8N_NOTIFY_MAX_TIME_SECONDS:-30}"
-curl_retry_count="${N8N_NOTIFY_RETRY_COUNT:-3}"
-curl_retry_delay="${N8N_NOTIFY_RETRY_DELAY_SECONDS:-2}"
 
 json_escape() {
     local value="$1"
@@ -83,9 +81,6 @@ fi
 printf '%s' "$payload" | curl --silent --show-error --fail \
     --connect-timeout "$curl_connect_timeout" \
     --max-time "$curl_max_time" \
-    --retry "$curl_retry_count" \
-    --retry-delay "$curl_retry_delay" \
-    --retry-all-errors \
     --request POST \
     --header "Content-Type: application/json" \
     --header "x-jenkins-webhook-token: $N8N_WEBHOOK_SHARED_TOKEN" \

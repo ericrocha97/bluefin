@@ -16,7 +16,6 @@ set -eoux pipefail
 #   - journald size limits
 #   - rpm-ostreed automatic update policy
 #   - earlyoom configuration
-#   - GNOME mutter check-alive-timeout
 ###############################################################################
 
 # Source helper functions
@@ -107,24 +106,6 @@ log_success "earlyoom service enabled"
 echo "::endgroup::"
 
 ###############################################################################
-# Install GNOME GSettings Override
-###############################################################################
-
-echo "::group:: Install GNOME Tweaks"
-log_step "Installing GNOME GSettings overrides..."
-
-mkdir -p /usr/share/glib-2.0/schemas/
-cp -v "${SYSTEM_FILES_DIR}"/usr/share/glib-2.0/schemas/99-custom.gschema.override \
-    /usr/share/glib-2.0/schemas/
-
-# Recompile GSettings schemas to apply overrides
-log_info "Recompiling GSettings schemas..."
-glib-compile-schemas /usr/share/glib-2.0/schemas/
-log_success "GNOME check-alive-timeout set to 20000ms"
-
-echo "::endgroup::"
-
-###############################################################################
 # Install Custom Fastfetch Configuration
 ###############################################################################
 
@@ -156,5 +137,4 @@ log_info "  ✓ Transparent Huge Pages (defer+madvise, shrinker at 80%)"
 log_info "  ✓ Journal size limited to 50MB"
 log_info "  ✓ Automatic updates (stage policy)"
 log_info "  ✓ earlyoom enabled (5% memory/swap threshold)"
-log_info "  ✓ GNOME mutter check-alive-timeout = 20s"
 log_info "  ✓ Custom fastfetch config (image info, COSMIC version, build date)"

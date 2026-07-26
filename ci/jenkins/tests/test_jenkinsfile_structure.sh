@@ -20,8 +20,10 @@ assert_file_contains "$JENKINSFILE" "stage('Create GitHub Release')"
 assert_file_contains "$JENKINSFILE" "stage('Resolve Branch Context')"
 
 assert_file_contains "$JENKINSFILE" "post {"
-assert_file_contains "$JENKINSFILE" "success {"
-assert_file_contains "$JENKINSFILE" "failure {"
+assert_file_contains "$JENKINSFILE" "always {"
+assert_file_contains "$JENKINSFILE" "currentBuild.currentResult"
+assert_file_contains "$JENKINSFILE" "env.N8N_STATUS"
+assert_file_contains "$JENKINSFILE" "notify_n8n.sh failed in post hook"
 
 assert_file_contains "$JENKINSFILE" "ci/jenkins/scripts/generate_metadata.sh"
 assert_file_contains "$JENKINSFILE" "ci/jenkins/scripts/extract_versions.sh"
@@ -67,6 +69,6 @@ assert_file_contains "$JENKINSFILE" "gh release edit \"\$release_tag\" --title \
 assert_file_contains "$JENKINSFILE" "gh release create \"\$release_tag\" --title \"\$release_tag\" --notes-file \"\$RELEASE_BODY_FILE\""
 assert_file_contains "$JENKINSFILE" "gh release upload \"\$release_tag\" \"\$MANIFEST_FILE\" --clobber"
 assert_file_contains "$JENKINSFILE" "git_sha=\"\${GIT_COMMIT:-\${GIT_PREVIOUS_SUCCESSFUL_COMMIT:-unknown}}\""
-assert_file_contains "$JENKINSFILE" "if [[ -z \"\$started_at\" && -f ci/jenkins/build/started_at ]]; then"
+assert_file_contains "$JENKINSFILE" "if [[ -z \"\$build_started_at\" && -f ci/jenkins/build/started_at ]]; then"
 
 printf 'PASS: test_jenkinsfile_structure.sh\n'
