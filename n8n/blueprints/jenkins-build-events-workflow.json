@@ -49,7 +49,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const configuredBaseUrl = $env.JENKINS_PUBLIC_URL ?? 'http://casaos.local:18080/';\nconst publicBaseUrl = String(configuredBaseUrl).trim() || 'http://casaos.local:18080/';\nreturn items.map((item) => ({\n  json: {\n    ...item.json,\n    link: publicBaseUrl,\n  },\n}));"
+        "jsCode": "return items.map((item) => {\n  const existingBuildUrl = String(item.json.build_url ?? '').trim();\n  return {\n    json: {\n      ...item.json,\n      link: existingBuildUrl,\n    },\n  };\n});"
       },
       "id": "6",
       "name": "Set Public Build Link",
