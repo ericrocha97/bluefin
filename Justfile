@@ -246,17 +246,17 @@ rebuild-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_reb
 
 # Build, VHD via BIB, convert to VHDX with qemu-img
 [group('Build Virtal Machine Image')]
-build-vhdx: (_build-vhdx image_name default_tag)
+build-vhdx $tag=default_tag: (_build-vhdx ("localhost/" + image_name) tag)
 
 # Build a VHDX virtual machine image (Hyper-V, NVIDIA variant)
 
 # Build with NVIDIA base, VHD via BIB, convert to VHDX
 [group('Build Virtal Machine Image')]
-build-nvidia-vhdx:
+build-nvidia-vhdx $tag=default_tag:
     #!/usr/bin/env bash
     set -euo pipefail
-    just build-nvidia "$image_name_nvidia" "$default_tag"
-    just _build-bib "$image_name_nvidia" "stable" "vhd" "iso/disk.toml"
+    just build-nvidia "$image_name_nvidia" "$tag"
+    just _build-bib "$image_name_nvidia" "$tag" "vhd" "iso/disk.toml"
     just _convert-vhdx "output/vhd/disk.vhd" "output/vhd/disk.vhdx"
 
 # Private: build container + VHD via BIB + convert to VHDX (standard)
@@ -302,39 +302,39 @@ _convert-vhdx $vhd $vhdx:
 
 # Build a NVIDIA QCOW2 virtual machine image
 [group('Build Virtal Machine Image')]
-build-nvidia-qcow2 $target_image=("localhost/" + image_name_nvidia): && (_build-bib target_image "stable" "qcow2" "iso/disk.toml")
+build-nvidia-qcow2 $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_build-bib target_image tag "qcow2" "iso/disk.toml")
 
 # Build a NVIDIA RAW virtual machine image
 [group('Build Virtal Machine Image')]
-build-nvidia-raw $target_image=("localhost/" + image_name_nvidia): && (_build-bib target_image "stable" "raw" "iso/disk.toml")
+build-nvidia-raw $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_build-bib target_image tag "raw" "iso/disk.toml")
 
 # Build a NVIDIA ISO virtual machine image
 [group('Build Virtal Machine Image')]
-build-nvidia-iso $target_image=("localhost/" + image_name_nvidia): && (_build-bib target_image "stable" "iso" "iso/iso-nvidia.toml")
+build-nvidia-iso $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_build-bib target_image tag "iso" "iso/iso-nvidia.toml")
 
 # Rebuild a NVIDIA QCOW2 virtual machine image
 [group('Build Virtal Machine Image')]
-rebuild-nvidia-qcow2 $target_image=("localhost/" + image_name_nvidia):
+rebuild-nvidia-qcow2 $target_image=("localhost/" + image_name_nvidia) $tag=default_tag:
     #!/usr/bin/env bash
     set -euo pipefail
-    just build-nvidia "$target_image" "$default_tag"
-    just _build-bib "$target_image" "stable" "qcow2" "iso/disk.toml"
+    just build-nvidia "$target_image" "$tag"
+    just _build-bib "$target_image" "$tag" "qcow2" "iso/disk.toml"
 
 # Rebuild a NVIDIA RAW virtual machine image
 [group('Build Virtal Machine Image')]
-rebuild-nvidia-raw $target_image=("localhost/" + image_name_nvidia):
+rebuild-nvidia-raw $target_image=("localhost/" + image_name_nvidia) $tag=default_tag:
     #!/usr/bin/env bash
     set -euo pipefail
-    just build-nvidia "$target_image" "$default_tag"
-    just _build-bib "$target_image" "stable" "raw" "iso/disk.toml"
+    just build-nvidia "$target_image" "$tag"
+    just _build-bib "$target_image" "$tag" "raw" "iso/disk.toml"
 
 # Rebuild a NVIDIA ISO virtual machine image
 [group('Build Virtal Machine Image')]
-rebuild-nvidia-iso $target_image=("localhost/" + image_name_nvidia):
+rebuild-nvidia-iso $target_image=("localhost/" + image_name_nvidia) $tag=default_tag:
     #!/usr/bin/env bash
     set -euo pipefail
-    just build-nvidia "$target_image" "$default_tag"
-    just _build-bib "$target_image" "stable" "iso" "iso/iso-nvidia.toml"
+    just build-nvidia "$target_image" "$tag"
+    just _build-bib "$target_image" "$tag" "iso" "iso/iso-nvidia.toml"
 
 # Run a virtual machine with the specified image type and configuration
 _run-vm $target_image $tag $type $config:
@@ -421,15 +421,15 @@ spawn-vm rebuild="0" type="qcow2" ram="6G":
 
 # Run a virtual machine from a NVIDIA QCOW2 image
 [group('Run Virtal Machine')]
-run-nvidia-vm-qcow2 $target_image=("localhost/" + image_name_nvidia): && (_run-vm target_image "stable" "qcow2" "iso/disk.toml")
+run-nvidia-vm-qcow2 $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_run-vm target_image tag "qcow2" "iso/disk.toml")
 
 # Run a virtual machine from a NVIDIA RAW image
 [group('Run Virtal Machine')]
-run-nvidia-vm-raw $target_image=("localhost/" + image_name_nvidia): && (_run-vm target_image "stable" "raw" "iso/disk.toml")
+run-nvidia-vm-raw $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_run-vm target_image tag "raw" "iso/disk.toml")
 
 # Run a virtual machine from a NVIDIA ISO
 [group('Run Virtal Machine')]
-run-nvidia-vm-iso $target_image=("localhost/" + image_name_nvidia): && (_run-vm target_image "stable" "iso" "iso/iso-nvidia.toml")
+run-nvidia-vm-iso $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_run-vm target_image tag "iso" "iso/iso-nvidia.toml")
 
 # Runs shell check on all Bash scripts
 lint:
