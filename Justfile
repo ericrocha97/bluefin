@@ -244,61 +244,61 @@ rebuild-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_reb
 
 # Build a VHDX virtual machine image (Hyper-V, standard variant)
 
-# Build, VHD via BIB, convert to VHDX with qemu-img
+# Build QCOW2 via BIB, convert to VHDX with qemu-img
 [group('Build Virtal Machine Image')]
 build-vhdx $tag=default_tag: (_build-vhdx ("localhost/" + image_name) tag)
 
 # Build a VHDX virtual machine image (Hyper-V, NVIDIA variant)
 
-# Build with NVIDIA base, VHD via BIB, convert to VHDX
+# Build QCOW2 with NVIDIA base via BIB, convert to VHDX
 [group('Build Virtal Machine Image')]
 build-nvidia-vhdx $tag=default_tag:
     #!/usr/bin/env bash
     set -euo pipefail
     local_image="localhost/${image_name_nvidia}"
     just build-nvidia "$local_image" "$tag"
-    just _build-bib "$local_image" "$tag" "vhd" "iso/disk.toml"
-    just _convert-vhdx "output/vpc/disk.vhd" "output/vpc/disk.vhdx"
+    just _build-bib "$local_image" "$tag" "qcow2" "iso/disk.toml"
+    just _convert-vhdx "output/qcow2/disk.qcow2" "output/qcow2/disk.vhdx"
 
-# Private: build container + VHD via BIB + convert to VHDX (standard)
+# Private: build container + QCOW2 via BIB + convert to VHDX (standard)
 [private]
 _build-vhdx $target_image $tag: (build target_image tag)
     #!/usr/bin/env bash
     set -euo pipefail
 
-    echo "==> Step 1/2: Building VHD via bootc-image-builder..."
-    just _build-bib "$target_image" "$tag" "vhd" "iso/disk.toml"
-    just _convert-vhdx "output/vpc/disk.vhd" "output/vpc/disk.vhdx"
+    echo "==> Step 1/2: Building QCOW2 via bootc-image-builder..."
+    just _build-bib "$target_image" "$tag" "qcow2" "iso/disk.toml"
+    just _convert-vhdx "output/qcow2/disk.qcow2" "output/qcow2/disk.vhdx"
 
-# Private: convert VHD to VHDX
+# Private: convert QCOW2 to VHDX
 [private]
-_convert-vhdx $vhd $vhdx:
+_convert-vhdx $input $output:
     #!/usr/bin/env bash
     set -euo pipefail
-    vhd_file="{{ vhd }}"
-    vhdx_file="{{ vhdx }}"
+    input_file="{{ input }}"
+    output_file="{{ output }}"
 
-    if [[ ! -f "$vhd_file" ]]; then
-        echo "ERROR: VHD not found at $vhd_file" >&2
+    if [[ ! -f "$input_file" ]]; then
+        echo "ERROR: input not found at $input_file" >&2
         exit 1
     fi
 
-    echo "==> Converting VHD to VHDX..."
-    mkdir -p "$(dirname "$vhdx_file")"
+    echo "==> Converting QCOW2 to VHDX..."
+    mkdir -p "$(dirname "$output_file")"
 
     if command -v qemu-img &>/dev/null; then
-        qemu-img convert -f vpc -O vhdx -o subformat=dynamic "$vhd_file" "$vhdx_file"
+        qemu-img convert -O vhdx -o subformat=dynamic "$input_file" "$output_file"
     else
         echo "qemu-img not found on host. Trying via podman..."
         podman run --rm \
             -v "$(pwd):/data:z" \
             "${qemu_image}" \
-            qemu-img convert -f vpc -O vhdx -o subformat=dynamic "/data/${vhd_file}" "/data/${vhdx_file}"
+            qemu-img convert -O vhdx -o subformat=dynamic "/data/${input_file}" "/data/${output_file}"
     fi
 
     echo ""
-    echo "==> VHDX ready: $vhdx_file"
-    echo "    Copy to Windows via: cp $vhdx_file /mnt/c/Users/SEU_USUARIO/Desktop/"
+    echo "==> VHDX ready: $output_file"
+    echo "    Copy to Windows via: cp $output_file /mnt/c/Users/SEU_USUARIO/Desktop/"
     echo "    Attach as existing disk in Hyper-V (Gen 2 VM)"
 
 # Build a NVIDIA QCOW2 virtual machine image
