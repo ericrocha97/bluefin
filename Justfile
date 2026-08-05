@@ -258,7 +258,7 @@ build-nvidia-vhdx $tag=default_tag:
     local_image="localhost/${image_name_nvidia}"
     just build-nvidia "$local_image" "$tag"
     just _build-bib "$local_image" "$tag" "vhd" "iso/disk.toml"
-    just _convert-vhdx "output/vhd/disk.vhd" "output/vhd/disk.vhdx"
+    just _convert-vhdx "output/vpc/disk.vhd" "output/vpc/disk.vhdx"
 
 # Private: build container + VHD via BIB + convert to VHDX (standard)
 [private]
@@ -268,7 +268,7 @@ _build-vhdx $target_image $tag: (build target_image tag)
 
     echo "==> Step 1/2: Building VHD via bootc-image-builder..."
     just _build-bib "$target_image" "$tag" "vhd" "iso/disk.toml"
-    just _convert-vhdx "output/vhd/disk.vhd" "output/vhd/disk.vhdx"
+    just _convert-vhdx "output/vpc/disk.vhd" "output/vpc/disk.vhdx"
 
 # Private: convert VHD to VHDX
 [private]
