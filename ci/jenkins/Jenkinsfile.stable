@@ -103,7 +103,7 @@ fi
 
 rm -f ci/jenkins/build/previous-manifest.txt
 RELEASE_TAG="$(<ci/jenkins/build/release_tag)"
-previous_release_tag="$(gh release list --limit 100 --json tagName --jq '.[] | .tagName' 2>/dev/null | awk -v current="$RELEASE_TAG" '$0 != current { print; exit }' || true)"
+previous_release_tag="$(gh release list --limit 100 --json tagName --jq '.[] | .tagName' 2>/dev/null | grep -v -- '-nvidia$' | awk -v current="$RELEASE_TAG" '$0 != current { print; exit }' || true)"
 if [[ -n "$previous_release_tag" ]]; then
   previous_manifest_dir="ci/jenkins/build/previous-manifest"
   mkdir -p "$previous_manifest_dir"

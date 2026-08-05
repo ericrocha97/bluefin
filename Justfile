@@ -106,7 +106,7 @@ build $target_image=image_name $tag=default_tag:
         .
 
 # Build the NVIDIA variant image
-build-nvidia $target_image=image_name_nvidia:
+build-nvidia $target_image=image_name_nvidia $tag=default_tag:
     #!/usr/bin/env bash
 
     BUILD_ARGS=()
@@ -118,7 +118,7 @@ build-nvidia $target_image=image_name_nvidia:
         "${BUILD_ARGS[@]}" \
         --build-arg BASE_IMAGE=ghcr.io/ublue-os/bluefin-dx-nvidia-open:stable-daily \
         --pull=newer \
-        --tag "${target_image}:stable" \
+        --tag "${target_image}:${tag}" \
         .
 
 # Command: _rootful_load_image
@@ -242,6 +242,64 @@ rebuild-raw $target_image=("localhost/" + image_name) $tag=default_tag: && (_reb
 [group('Build Virtal Machine Image')]
 rebuild-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_rebuild-bib target_image tag "iso" "iso/iso.toml")
 
+# Build a VHDX virtual machine image (Hyper-V, standard variant)
+
+# Build, VHD via BIB, convert to VHDX with qemu-img
+[group('Build Virtal Machine Image')]
+build-vhdx: (_build-vhdx image_name default_tag)
+
+# Build a VHDX virtual machine image (Hyper-V, NVIDIA variant)
+
+# Build with NVIDIA base, VHD via BIB, convert to VHDX
+[group('Build Virtal Machine Image')]
+build-nvidia-vhdx:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just build-nvidia "$image_name_nvidia" "$default_tag"
+    just _build-bib "$image_name_nvidia" "stable" "vhd" "iso/disk.toml"
+    just _convert-vhdx "output/vhd/disk.vhd" "output/vhd/disk.vhdx"
+
+# Private: build container + VHD via BIB + convert to VHDX (standard)
+[private]
+_build-vhdx $target_image $tag: (build target_image tag)
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "==> Step 1/2: Building VHD via bootc-image-builder..."
+    just _build-bib "$target_image" "$tag" "vhd" "iso/disk.toml"
+    just _convert-vhdx "output/vhd/disk.vhd" "output/vhd/disk.vhdx"
+
+# Private: convert VHD to VHDX
+[private]
+_convert-vhdx $vhd $vhdx:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    vhd_file="$1"
+    vhdx_file="$2"
+
+    if [[ ! -f "$vhd_file" ]]; then
+        echo "ERROR: VHD not found at $vhd_file" >&2
+        exit 1
+    fi
+
+    echo "==> Converting VHD to VHDX..."
+    mkdir -p "$(dirname "$vhdx_file")"
+
+    if command -v qemu-img &>/dev/null; then
+        qemu-img convert -f vpc -O vhdx -o subformat=dynamic "$vhd_file" "$vhdx_file"
+    else
+        echo "qemu-img not found on host. Trying via podman..."
+        podman run --rm \
+            -v "$(pwd):/data:z" \
+            "${qemu_image}" \
+            qemu-img convert -f vpc -O vhdx -o subformat=dynamic "/data/${vhd_file}" "/data/${vhdx_file}"
+    fi
+
+    echo ""
+    echo "==> VHDX ready: $vhdx_file"
+    echo "    Copy to Windows via: cp $vhdx_file /mnt/c/Users/SEU_USUARIO/Desktop/"
+    echo "    Attach as existing disk in Hyper-V (Gen 2 VM)"
+
 # Build a NVIDIA QCOW2 virtual machine image
 [group('Build Virtal Machine Image')]
 build-nvidia-qcow2 $target_image=("localhost/" + image_name_nvidia): && (_build-bib target_image "stable" "qcow2" "iso/disk.toml")
@@ -256,15 +314,27 @@ build-nvidia-iso $target_image=("localhost/" + image_name_nvidia): && (_build-bi
 
 # Rebuild a NVIDIA QCOW2 virtual machine image
 [group('Build Virtal Machine Image')]
-rebuild-nvidia-qcow2 $target_image=("localhost/" + image_name_nvidia): && (_rebuild-bib target_image "stable" "qcow2" "iso/disk.toml")
+rebuild-nvidia-qcow2 $target_image=("localhost/" + image_name_nvidia):
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just build-nvidia "$target_image" "$default_tag"
+    just _build-bib "$target_image" "stable" "qcow2" "iso/disk.toml"
 
 # Rebuild a NVIDIA RAW virtual machine image
 [group('Build Virtal Machine Image')]
-rebuild-nvidia-raw $target_image=("localhost/" + image_name_nvidia): && (_rebuild-bib target_image "stable" "raw" "iso/disk.toml")
+rebuild-nvidia-raw $target_image=("localhost/" + image_name_nvidia):
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just build-nvidia "$target_image" "$default_tag"
+    just _build-bib "$target_image" "stable" "raw" "iso/disk.toml"
 
 # Rebuild a NVIDIA ISO virtual machine image
 [group('Build Virtal Machine Image')]
-rebuild-nvidia-iso $target_image=("localhost/" + image_name_nvidia): && (_rebuild-bib target_image "stable" "iso" "iso/iso-nvidia.toml")
+rebuild-nvidia-iso $target_image=("localhost/" + image_name_nvidia):
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just build-nvidia "$target_image" "$default_tag"
+    just _build-bib "$target_image" "stable" "iso" "iso/iso-nvidia.toml"
 
 # Run a virtual machine with the specified image type and configuration
 _run-vm $target_image $tag $type $config:

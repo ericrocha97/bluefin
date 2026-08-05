@@ -34,6 +34,9 @@
 # See: https://docs.projectbluefin.io/contributing/ for architecture diagram
 ###############################################################################
 
+# Base image selection (global ARG — must be before any FROM)
+ARG BASE_IMAGE=ghcr.io/ublue-os/bluefin-dx:stable
+
 # Context stage - combine local and imported OCI container resources
 FROM scratch AS ctx
 
@@ -45,7 +48,6 @@ COPY --from=ghcr.io/projectbluefin/common:latest /system_files /oci/common
 COPY --from=ghcr.io/ublue-os/brew:latest /system_files /oci/brew
 
 # Base Image - Bluefin DX (GNOME is removed in 40-remove-gnome.sh, leaving only COSMIC)
-ARG BASE_IMAGE="ghcr.io/ublue-os/bluefin-dx:stable"
 FROM ${BASE_IMAGE}
 
 ## Alternative base images, no desktop included (uncomment to use):

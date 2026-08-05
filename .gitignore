@@ -10,3 +10,5 @@ _build-*/**
 docs/superpowers/
 
 *.vhdx
+
+LOCAL-TESTING.md

@@ -13,7 +13,7 @@ Ele constrói uma imagem bootc customizada COSMIC-only baseada no Bluefin DX, us
 ## Build e Publicação
 
 - O build e a publicação oficiais da imagem rodam via pipelines Jenkins self-hosted (`ci/jenkins/Jenkinsfile.stable` para a imagem padrão e `ci/jenkins/Jenkinsfile.nvidia` para a variante NVIDIA).
-- Registro oficial da imagem: `ghcr.io/ericrocha97/bluefin-cosmic-dx`.
+- Registros oficiais da imagem: `ghcr.io/ericrocha97/bluefin-cosmic-dx` (padrão) e `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` (NVIDIA).
 - O GitHub Actions (`.github/workflows/build.yml`) agora roda apenas como check de PR (`pull_request` para `main`) e não publica imagem.
 
 ## O que torna este Raptor diferente?
