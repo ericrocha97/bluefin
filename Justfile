@@ -255,8 +255,9 @@ build-vhdx $tag=default_tag: (_build-vhdx ("localhost/" + image_name) tag)
 build-nvidia-vhdx $tag=default_tag:
     #!/usr/bin/env bash
     set -euo pipefail
-    just build-nvidia "$image_name_nvidia" "$tag"
-    just _build-bib "$image_name_nvidia" "$tag" "vhd" "iso/disk.toml"
+    local_image="localhost/${image_name_nvidia}"
+    just build-nvidia "$local_image" "$tag"
+    just _build-bib "$local_image" "$tag" "vhd" "iso/disk.toml"
     just _convert-vhdx "output/vhd/disk.vhd" "output/vhd/disk.vhdx"
 
 # Private: build container + VHD via BIB + convert to VHDX (standard)
