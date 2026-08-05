@@ -264,7 +264,8 @@ build-nvidia-vhdx $tag=default_tag:
     local_image="localhost/${image_name_nvidia}"
     just build-nvidia "$local_image" "$tag"
     just _build-bib "$local_image" "$tag" "qcow2" "iso/disk.toml"
-    just _convert-vhdx "output/qcow2/disk.qcow2" "output/qcow2/disk.vhdx"
+    mv output/qcow2/disk.qcow2 "output/qcow2/${image_name_nvidia}.qcow2"
+    just _convert-vhdx "output/qcow2/${image_name_nvidia}.qcow2" "output/qcow2/${image_name_nvidia}.vhdx"
 
 # Private: build container + QCOW2 via BIB + convert to VHDX (standard)
 [private]
@@ -274,7 +275,8 @@ _build-vhdx $target_image $tag: (build target_image tag)
 
     echo "==> Step 1/2: Building QCOW2 via bootc-image-builder..."
     just _build-bib "$target_image" "$tag" "qcow2" "iso/disk.toml"
-    just _convert-vhdx "output/qcow2/disk.qcow2" "output/qcow2/disk.vhdx"
+    mv "output/qcow2/disk.qcow2" "output/qcow2/${image_name}.qcow2"
+    just _convert-vhdx "output/qcow2/${image_name}.qcow2" "output/qcow2/${image_name}.vhdx"
 
 # Private: convert QCOW2 to VHDX
 [private]
