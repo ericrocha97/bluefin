@@ -218,6 +218,12 @@ _build-bib $target_image $tag $type $config: (_rootful_load_image target_image t
 # Example: just _rebuild-bib localhost/fedora latest qcow2 iso/disk.toml
 _rebuild-bib $target_image $tag $type $config: (build target_image tag) && (_build-bib target_image tag type config)
 
+# Podman builds the NVIDIA image from the Containerfile and creates a bootable image
+
+# Same as _rebuild-bib, but uses build-nvidia instead of build
+[private]
+_rebuild-nvidia-bib $target_image $tag $type $config: (build-nvidia target_image tag) && (_build-bib target_image tag type config)
+
 # Build a QCOW2 virtual machine image
 [group('Build Virtal Machine Image')]
 build-qcow2 $target_image=("localhost/" + image_name) $tag=default_tag: && (_build-bib target_image tag "qcow2" "iso/disk.toml")
@@ -315,27 +321,15 @@ build-nvidia-iso $target_image=("localhost/" + image_name_nvidia) $tag=default_t
 
 # Rebuild a NVIDIA QCOW2 virtual machine image
 [group('Build Virtal Machine Image')]
-rebuild-nvidia-qcow2 $target_image=("localhost/" + image_name_nvidia) $tag=default_tag:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    just build-nvidia "$target_image" "$tag"
-    just _build-bib "$target_image" "$tag" "qcow2" "iso/disk.toml"
+rebuild-nvidia-qcow2 $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_rebuild-nvidia-bib target_image tag "qcow2" "iso/disk.toml")
 
 # Rebuild a NVIDIA RAW virtual machine image
 [group('Build Virtal Machine Image')]
-rebuild-nvidia-raw $target_image=("localhost/" + image_name_nvidia) $tag=default_tag:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    just build-nvidia "$target_image" "$tag"
-    just _build-bib "$target_image" "$tag" "raw" "iso/disk.toml"
+rebuild-nvidia-raw $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_rebuild-nvidia-bib target_image tag "raw" "iso/disk.toml")
 
 # Rebuild a NVIDIA ISO virtual machine image
 [group('Build Virtal Machine Image')]
-rebuild-nvidia-iso $target_image=("localhost/" + image_name_nvidia) $tag=default_tag:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    just build-nvidia "$target_image" "$tag"
-    just _build-bib "$target_image" "$tag" "iso" "iso/iso-nvidia.toml"
+rebuild-nvidia-iso $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_rebuild-nvidia-bib target_image tag "iso" "iso/iso-nvidia.toml")
 
 # Run a virtual machine with the specified image type and configuration
 _run-vm $target_image $tag $type $config:
