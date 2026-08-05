@@ -275,8 +275,8 @@ _build-vhdx $target_image $tag: (build target_image tag)
 _convert-vhdx $vhd $vhdx:
     #!/usr/bin/env bash
     set -euo pipefail
-    vhd_file="$1"
-    vhdx_file="$2"
+    vhd_file="{{ vhd }}"
+    vhdx_file="{{ vhdx }}"
 
     if [[ ! -f "$vhd_file" ]]; then
         echo "ERROR: VHD not found at $vhd_file" >&2
