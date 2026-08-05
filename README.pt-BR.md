@@ -1,7 +1,8 @@
 # bluefin-cosmic-dx
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/bluefin-cosmic-dx)](https://artifacthub.io/packages/search?repo=bluefin-cosmic-dx)
-[![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fericrocha97%2Fbluefin--cosmic--dx-2ea44f?logo=github)](https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx)
+[![GHCR Padrão](https://img.shields.io/badge/GHCR-bluefin--cosmic--dx-2ea44f?logo=github)](https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx)
+[![GHCR NVIDIA](https://img.shields.io/badge/GHCR-bluefin--cosmic--dx--nvidia-76b900?logo=nvidia)](https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx-nvidia)
 
 Este projeto foi criado usando o template finpilot: <https://github.com/projectbluefin/finpilot>.
 
@@ -11,7 +12,7 @@ Ele constrói uma imagem bootc customizada COSMIC-only baseada no Bluefin DX, us
 
 ## Build e Publicação
 
-- O build e a publicação oficiais da imagem rodam via Jenkins self-hosted (`Jenkinsfile`).
+- O build e a publicação oficiais da imagem rodam via pipelines Jenkins self-hosted (`ci/jenkins/Jenkinsfile.stable` para a imagem padrão e `ci/jenkins/Jenkinsfile.nvidia` para a variante NVIDIA).
 - Registro oficial da imagem: `ghcr.io/ericrocha97/bluefin-cosmic-dx`.
 - O GitHub Actions (`.github/workflows/build.yml`) agora roda apenas como check de PR (`pull_request` para `main`) e não publica imagem.
 
@@ -59,7 +60,7 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 - COSMIC é a única sessão de desktop apresentada no login.
 - Comandos customizados do ujust disponíveis: install-nvm, install-sdkman, install-dev-managers.
 
-*Última atualização: 2026-07-25*
+*Última atualização: 2026-08-05*
 
 ## O que é esta imagem
 
@@ -77,7 +78,18 @@ Baseado no **Bluefin DX**, esta imagem adiciona e altera:
 - **Vicinae** instalado via repo Terra (compatível com Bazzite)
 - Recursos de desenvolvimento do Bluefin DX que continuam compatíveis com o alvo COSMIC-only
 
-Imagem base: `ghcr.io/ublue-os/bluefin-dx:stable-daily`
+Imagem base: `ghcr.io/ublue-os/bluefin-dx:stable`
+
+## Variantes
+
+Esta imagem está disponível em duas variantes:
+
+| Variante | Imagem Base | Pacote GHCR | Para |
+|---------|-----------|-------------|------|
+| Padrão | `bluefin-dx:stable` | `ghcr.io/ericrocha97/bluefin-cosmic-dx` | GPUs Intel/AMD, VMs |
+| NVIDIA | `bluefin-dx-nvidia-open:stable-daily` | `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` | GPUs NVIDIA RTX |
+
+Ambas as variantes incluem o mesmo desktop COSMIC, otimizações de sistema e ferramentas de desenvolvimento. A variante NVIDIA adiciona os módulos de kernel NVIDIA open-source embutidos na imagem (sem necessidade de akmods/DKMS).
 
 ## Uso básico
 
@@ -89,6 +101,7 @@ Este projeto usa [Just](https://just.systems/) como executor de comandos. Aqui e
 
 ```bash
 just build              # Constrói a imagem do container
+just build-nvidia        # Constrói a variante NVIDIA da imagem container
 just build-vm           # Constrói imagem de VM (QCOW2) - alias para build-qcow2
 just build-qcow2        # Constrói imagem de VM QCOW2
 just build-iso          # Constrói imagem ISO instalador
@@ -143,6 +156,13 @@ Trocar seu sistema para esta imagem:
 
 ```bash
 sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
+sudo systemctl reboot
+```
+
+Para GPUs NVIDIA:
+
+```bash
+sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia:stable
 sudo systemctl reboot
 ```
 

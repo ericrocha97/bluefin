@@ -162,8 +162,8 @@ if not isinstance(set_public_link_code, str):
     sys.exit(1)
 
 required_public_link_patterns = [
-    "JENKINS_PUBLIC_URL",
-    "http://casaos.local:18080/",
+    "build_url",
+    "existingBuildUrl",
     "link:",
 ]
 

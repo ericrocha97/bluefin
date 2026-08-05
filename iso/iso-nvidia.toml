@@ -1,8 +1,9 @@
-# Anaconda ISO Installer Configuration
-# This configuration creates a bootable ISO image for installing your custom bootc image.
+# Anaconda ISO Installer Configuration (NVIDIA Variant)
+# This configuration creates a bootable ISO image for installing the NVIDIA variant
+# of your custom bootc image.
 #
 # The installer will guide users through disk partitioning and basic system setup,
-# then automatically switch to your custom image on first boot.
+# then automatically switch to the NVIDIA image on first boot.
 
 [customizations.installer.kickstart]
 contents = """
@@ -11,7 +12,7 @@ contents = """
 #   bootc switch --mutate-in-place --transport registry ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
 # NVIDIA variant (NVIDIA RTX GPUs):
 #   bootc switch --mutate-in-place --transport registry ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia:stable
-bootc switch --mutate-in-place --transport registry ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
+bootc switch --mutate-in-place --transport registry ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia:stable
 %end
 """
 

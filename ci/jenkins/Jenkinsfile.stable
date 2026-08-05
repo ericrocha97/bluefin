@@ -7,7 +7,7 @@ pipeline {
     }
 
     triggers {
-        cron('H 10 * * *')
+        cron('H 2 * * 0')
     }
 
     environment {
@@ -16,6 +16,8 @@ pipeline {
         IMAGE_NAME = 'bluefin-cosmic-dx'
         IMAGE_REPOSITORY = 'ghcr.io/ericrocha97/bluefin-cosmic-dx'
         IMAGE_PACKAGE_URL = 'https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx'
+        IMAGE_DESC = 'Customized Universal Blue Image With COSMIC DX Features'
+        IMAGE_KEYWORDS = 'bootc,ublue,universal-blue,cosmic,cosmic-dx,custom-image'
         DEFAULT_BRANCH = 'main'
         VERSION_DATE = ''
         SHORT_DATE = ''

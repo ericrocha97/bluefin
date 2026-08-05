@@ -20,7 +20,7 @@ source /ctx/build/copr-helpers.sh
 shopt -s nullglob
 
 log_section "Starting Custom Build"
-log_info "Base image: bluefin-dx:stable-daily"
+log_info "Base image: ${BASE_IMAGE:-ghcr.io/ublue-os/bluefin-dx:stable}"
 log_info "Build timestamp: $(date '+%Y-%m-%d %H:%M:%S')"
 
 echo "::group:: Copy Bluefin Config from Common"

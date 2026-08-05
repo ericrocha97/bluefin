@@ -185,7 +185,7 @@ This template follows the **Bluefin architecture pattern** from @projectbluefin/
 
 - **main** = Production releases ONLY. Never push directly. Builds `:stable` images.
 - **Conventional Commits** = REQUIRED. `feat:`, `fix:`, `chore:`, etc.
-- **Workflows** = Validation happens on PRs; official image build/publish is handled by Jenkins (`Jenkinsfile`).
+- **Workflows** = Validation happens on PRs; official image build/publish is handled by Jenkins pipelines (`ci/jenkins/Jenkinsfile.stable` and `ci/jenkins/Jenkinsfile.nvidia`).
 
 ### Validation Workflows
 
@@ -733,7 +733,7 @@ COSIGN_PASSWORD="" cosign generate-key-pair
 | PR validation fails: Brewfile | Invalid Brewfile syntax | Check Ruby syntax, ensure packages exist |
 | PR validation fails: Flatpak | Invalid app ID | Verify app ID exists on <https://flathub.org/> |
 | PR validation fails: justfile | Invalid just syntax | Run `just --list` locally to test |
-| Changes not in production | Wrong workflow | Verify Jenkins job execution and `Jenkinsfile` branch/trigger configuration |
+| Changes not in production | Wrong workflow | Verify Jenkins job execution and `ci/jenkins/Jenkinsfile.stable`/`ci/jenkins/Jenkinsfile.nvidia` branch/trigger configuration |
 | ISO missing customizations | Wrong bootc URL | Update `iso/iso.toml` bootc switch URL to match repo |
 | COPR packages missing after boot | COPR not disabled | COPRs persist if not disabled - use `copr_install_isolated` |
 | ujust commands not working | Wrong install location | Files must be in `custom/ujust/` and copied to `/usr/share/ublue-os/just/` |
@@ -936,6 +936,8 @@ See `build/copr-install-functions.sh` for reusable patterns:
 4. **Container Lint** - Validates final image with `bootc container lint`
 5. **Push to Registry** - Uploads to GitHub Container Registry (ghcr.io)
 
+**Dual-Variant Build**: The Containerfile accepts `--build-arg BASE_IMAGE=<url>` to override the base image. Two Jenkins pipelines (`ci/jenkins/Jenkinsfile.stable` and `ci/jenkins/Jenkinsfile.nvidia`) build with different base images and publish to separate GHCR packages.
+
 ### What Gets Included in the Image
 
 **Build-time (baked into image)**:
@@ -970,7 +972,7 @@ See `build/copr-install-functions.sh` for reusable patterns:
 
 **Production builds** (Jenkins):
 
-- Uses self-hosted Jenkins pipeline (`Jenkinsfile`)
+- Uses self-hosted Jenkins pipelines (`ci/jenkins/Jenkinsfile.stable` and `ci/jenkins/Jenkinsfile.nvidia`)
 - Handles official build, GHCR publish, and release automation
 
 ### Image Layers and Caching
@@ -1015,6 +1017,7 @@ When user requests customization, check in this order:
 3. **`custom/ujust/`** (15%) - User convenience commands
 4. **`custom/flatpaks/`** (5%) - GUI applications
 5. **`Containerfile`** (5%) - Base image, /opt config, advanced builds
+   - **Containerfile**: Uses `ARG BASE_IMAGE` to support dual-variant builds. The default is `bluefin-dx:stable` (standard). Pass `--build-arg BASE_IMAGE=ghcr.io/ublue-os/bluefin-dx-nvidia-open:stable-daily` for the NVIDIA variant. Do not remove the ARG.
 6. **`Justfile`** (2%) - Image name, build parameters
 7. **`iso/*.toml`** (2%) - ISO/disk customization for testing
 8. **`.github/workflows/`** (1%) - Metadata, triggers, workflow config
@@ -1193,5 +1196,5 @@ Assisted-by: Claude 3.5 Sonnet via GitHub Copilot
 ---
 
 **Last Updated**: 2025-11-14  
-**Template Version**: bluefin-cosmic-dx (Enhanced with comprehensive Copilot instructions)  
+**Template Version**: bluefin-cosmic-dx (Dual-build: standard + NVIDIA variants)  
 **Maintainer**: Universal Blue Community
