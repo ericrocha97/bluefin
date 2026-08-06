@@ -185,7 +185,9 @@ Universal Blue images include helpers in `/usr/lib/ujust/ujust.sh`:
 Test locally before committing:
 
 1. Build your image: `just build` (see [`Justfile`](../../Justfile))
-2. If on a bootc system: `sudo bootc switch --target localhost/bluefin-cosmic-dx:stable`
+2. If on a bootc system:
+   - Standard variant: `sudo bootc switch --target localhost/bluefin-cosmic-dx:stable`
+   - NVIDIA variant: `sudo bootc switch --target localhost/bluefin-cosmic-dx-nvidia:stable`
 3. Reboot and test: `ujust your-command`
 
 Or test the just files directly:

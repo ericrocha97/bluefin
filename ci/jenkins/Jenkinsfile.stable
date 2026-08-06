@@ -7,7 +7,7 @@ pipeline {
     }
 
     triggers {
-        cron('H 10 * * *')
+        cron('H 2 * * 0')
     }
 
     environment {
@@ -16,6 +16,8 @@ pipeline {
         IMAGE_NAME = 'bluefin-cosmic-dx'
         IMAGE_REPOSITORY = 'ghcr.io/ericrocha97/bluefin-cosmic-dx'
         IMAGE_PACKAGE_URL = 'https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx'
+        IMAGE_DESC = 'Customized Universal Blue Image With COSMIC DX Features'
+        IMAGE_KEYWORDS = 'bootc,ublue,universal-blue,cosmic,cosmic-dx,custom-image'
         DEFAULT_BRANCH = 'main'
         VERSION_DATE = ''
         SHORT_DATE = ''
@@ -101,7 +103,7 @@ fi
 
 rm -f ci/jenkins/build/previous-manifest.txt
 RELEASE_TAG="$(<ci/jenkins/build/release_tag)"
-previous_release_tag="$(gh release list --limit 100 --json tagName --jq '.[] | .tagName' 2>/dev/null | awk -v current="$RELEASE_TAG" '$0 != current { print; exit }' || true)"
+previous_release_tag="$(gh release list --limit 100 --json tagName --jq '.[] | .tagName' 2>/dev/null | grep -v -- '-nvidia$' | awk -v current="$RELEASE_TAG" '$0 != current { print; exit }' || true)"
 if [[ -n "$previous_release_tag" ]]; then
   previous_manifest_dir="ci/jenkins/build/previous-manifest"
   mkdir -p "$previous_manifest_dir"

@@ -31,6 +31,19 @@ assert_file_contains() {
     fi
 }
 
+assert_file_not_contains() {
+    local file_path="$1"
+    local expected_text="$2"
+
+    if [[ ! -f "$file_path" ]]; then
+        fail "File does not exist: $file_path"
+    fi
+
+    if grep -Fq -- "$expected_text" "$file_path"; then
+        fail "Unexpected '$expected_text' in $file_path"
+    fi
+}
+
 assert_contains() {
     local actual_text="$1"
     local expected_text="$2"

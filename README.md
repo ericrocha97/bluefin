@@ -1,7 +1,8 @@
 # bluefin-cosmic-dx
 
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/bluefin-cosmic-dx)](https://artifacthub.io/packages/search?repo=bluefin-cosmic-dx)
-[![GHCR](https://img.shields.io/badge/GHCR-ghcr.io%2Fericrocha97%2Fbluefin--cosmic--dx-2ea44f?logo=github)](https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx)
+[![GHCR Standard](https://img.shields.io/badge/GHCR-bluefin--cosmic--dx-2ea44f?logo=github)](https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx)
+[![GHCR NVIDIA](https://img.shields.io/badge/GHCR-bluefin--cosmic--dx--nvidia-76b900?logo=nvidia)](https://github.com/ericrocha97/bluefin/pkgs/container/bluefin-cosmic-dx-nvidia)
 
 This project was created using the finpilot template: <https://github.com/projectbluefin/finpilot>.
 
@@ -11,8 +12,8 @@ It builds a COSMIC-only custom bootc image based on Bluefin DX, using the multi-
 
 ## Build and Publish
 
-- Official image build and publication runs via self-hosted Jenkins (`Jenkinsfile`).
-- Published image registry: `ghcr.io/ericrocha97/bluefin-cosmic-dx`.
+- Official image build and publication runs via self-hosted Jenkins pipelines (`ci/jenkins/Jenkinsfile.stable` for the standard image and `ci/jenkins/Jenkinsfile.nvidia` for the NVIDIA variant).
+- Published image registries: `ghcr.io/ericrocha97/bluefin-cosmic-dx` (standard) and `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` (NVIDIA).
 - GitHub Actions (`.github/workflows/build.yml`) now runs only as a PR check (`pull_request` for `main`) and does not publish images.
 
 ## What Makes this Raptor Different?
@@ -59,7 +60,7 @@ Here are the changes from Bluefin DX. This image is based on Bluefin and include
 - COSMIC is the only desktop session presented at login.
 - Custom ujust commands available: install-nvm, install-sdkman, install-dev-managers.
 
-*Last updated: 2026-07-25*
+*Last updated: 2026-08-05*
 
 ## What is this image
 
@@ -77,7 +78,18 @@ Based on **Bluefin DX**, this image adds and changes:
 - **Vicinae** installed via Terra repo (Bazzite-compatible)
 - All Bluefin DX development features that remain compatible with the COSMIC-only desktop target
 
-Base image: `ghcr.io/ublue-os/bluefin-dx:stable-daily`
+Base image: `ghcr.io/ublue-os/bluefin-dx:stable`
+
+## Variants
+
+This image is available in two variants:
+
+| Variant | Base Image | GHCR Package | For |
+|---------|-----------|-------------|-----|
+| Standard | `bluefin-dx:stable` | `ghcr.io/ericrocha97/bluefin-cosmic-dx` | Intel/AMD GPUs, VMs |
+| NVIDIA | `bluefin-dx-nvidia-open:stable-daily` | `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` | NVIDIA RTX GPUs |
+
+Both variants include the same COSMIC desktop, system optimizations, and developer tools. The NVIDIA variant adds the open-source NVIDIA kernel modules baked into the image (no akmods/DKMS needed).
 
 ## Jenkins Pipeline Operations
 
@@ -93,6 +105,7 @@ This project uses [Just](https://just.systems/) as a command runner. Here are th
 
 ```bash
 just build              # Build the container image
+just build-nvidia        # Build the NVIDIA variant container image
 just build-vm           # Build VM image (QCOW2) - alias for build-qcow2
 just build-qcow2        # Build QCOW2 VM image
 just build-iso          # Build ISO installer image
@@ -147,6 +160,13 @@ Switch your system to this image:
 
 ```bash
 sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
+sudo systemctl reboot
+```
+
+For NVIDIA GPUs:
+
+```bash
+sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia:stable
 sudo systemctl reboot
 ```
 

@@ -1,11 +1,15 @@
 export image_name := env("IMAGE_NAME", "bluefin-cosmic-dx")
 export default_tag := env("DEFAULT_TAG", "stable")
+export image_name_nvidia := env("IMAGE_NAME_NVIDIA", "bluefin-cosmic-dx-nvidia")
 export bib_image := env("BIB_IMAGE", "quay.io/centos-bootc/bootc-image-builder:latest@sha256:903c01d110b8533f8891f07c69c0ba2377f8d4bc7e963311082b7028c04d529d")
 export qemu_image := env("QEMU_IMAGE", "docker.io/qemux/qemu:9.2")
 
 alias build-vm := build-qcow2
 alias rebuild-vm := rebuild-qcow2
 alias run-vm := run-vm-qcow2
+alias build-nvidia-vm := build-nvidia-qcow2
+alias rebuild-nvidia-vm := rebuild-nvidia-qcow2
+alias run-nvidia-vm := run-nvidia-vm-qcow2
 
 [private]
 default:
@@ -97,6 +101,22 @@ build $target_image=image_name $tag=default_tag:
 
     podman build \
         "${BUILD_ARGS[@]}" \
+        --pull=newer \
+        --tag "${target_image}:${tag}" \
+        .
+
+# Build the NVIDIA variant image
+build-nvidia $target_image=image_name_nvidia $tag=default_tag:
+    #!/usr/bin/env bash
+
+    BUILD_ARGS=()
+    if [[ -z "$(git status -s)" ]]; then
+        BUILD_ARGS+=("--build-arg" "SHA_HEAD_SHORT=$(git rev-parse --short HEAD)")
+    fi
+
+    podman build \
+        "${BUILD_ARGS[@]}" \
+        --build-arg BASE_IMAGE=ghcr.io/ublue-os/bluefin-dx-nvidia-open:stable-daily \
         --pull=newer \
         --tag "${target_image}:${tag}" \
         .
@@ -198,6 +218,12 @@ _build-bib $target_image $tag $type $config: (_rootful_load_image target_image t
 # Example: just _rebuild-bib localhost/fedora latest qcow2 iso/disk.toml
 _rebuild-bib $target_image $tag $type $config: (build target_image tag) && (_build-bib target_image tag type config)
 
+# Podman builds the NVIDIA image from the Containerfile and creates a bootable image
+
+# Same as _rebuild-bib, but uses build-nvidia instead of build
+[private]
+_rebuild-nvidia-bib $target_image $tag $type $config: (build-nvidia target_image tag) && (_build-bib target_image tag type config)
+
 # Build a QCOW2 virtual machine image
 [group('Build Virtal Machine Image')]
 build-qcow2 $target_image=("localhost/" + image_name) $tag=default_tag: && (_build-bib target_image tag "qcow2" "iso/disk.toml")
@@ -221,6 +247,91 @@ rebuild-raw $target_image=("localhost/" + image_name) $tag=default_tag: && (_reb
 # Rebuild an ISO virtual machine image
 [group('Build Virtal Machine Image')]
 rebuild-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_rebuild-bib target_image tag "iso" "iso/iso.toml")
+
+# Build a VHDX virtual machine image (Hyper-V, standard variant)
+
+# Build QCOW2 via BIB, convert to VHDX with qemu-img
+[group('Build Virtal Machine Image')]
+build-vhdx $tag=default_tag: (_build-vhdx ("localhost/" + image_name) tag)
+
+# Build a VHDX virtual machine image (Hyper-V, NVIDIA variant)
+
+# Build QCOW2 with NVIDIA base via BIB, convert to VHDX
+[group('Build Virtal Machine Image')]
+build-nvidia-vhdx $tag=default_tag:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    local_image="localhost/${image_name_nvidia}"
+    just build-nvidia "$local_image" "$tag"
+    just _build-bib "$local_image" "$tag" "qcow2" "iso/disk.toml"
+    mv output/qcow2/disk.qcow2 "output/qcow2/${image_name_nvidia}.qcow2"
+    just _convert-vhdx "output/qcow2/${image_name_nvidia}.qcow2" "output/qcow2/${image_name_nvidia}.vhdx"
+
+# Private: build container + QCOW2 via BIB + convert to VHDX (standard)
+[private]
+_build-vhdx $target_image $tag: (build target_image tag)
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "==> Step 1/2: Building QCOW2 via bootc-image-builder..."
+    just _build-bib "$target_image" "$tag" "qcow2" "iso/disk.toml"
+    mv "output/qcow2/disk.qcow2" "output/qcow2/${image_name}.qcow2"
+    just _convert-vhdx "output/qcow2/${image_name}.qcow2" "output/qcow2/${image_name}.vhdx"
+
+# Private: convert QCOW2 to VHDX
+[private]
+_convert-vhdx $input $output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    input_file="{{ input }}"
+    output_file="{{ output }}"
+
+    if [[ ! -f "$input_file" ]]; then
+        echo "ERROR: input not found at $input_file" >&2
+        exit 1
+    fi
+
+    echo "==> Converting QCOW2 to VHDX..."
+    mkdir -p "$(dirname "$output_file")"
+
+    if command -v qemu-img &>/dev/null; then
+        qemu-img convert -O vhdx -o subformat=dynamic "$input_file" "$output_file"
+    else
+        echo "qemu-img not found on host. Trying via podman..."
+        podman run --rm \
+            -v "$(pwd):/data:z" \
+            "${qemu_image}" \
+            qemu-img convert -O vhdx -o subformat=dynamic "/data/${input_file}" "/data/${output_file}"
+    fi
+
+    echo ""
+    echo "==> VHDX ready: $output_file"
+    echo "    Copy to Windows via: cp $output_file /mnt/c/Users/SEU_USUARIO/Desktop/"
+    echo "    Attach as existing disk in Hyper-V (Gen 2 VM)"
+
+# Build a NVIDIA QCOW2 virtual machine image
+[group('Build Virtal Machine Image')]
+build-nvidia-qcow2 $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_build-bib target_image tag "qcow2" "iso/disk.toml")
+
+# Build a NVIDIA RAW virtual machine image
+[group('Build Virtal Machine Image')]
+build-nvidia-raw $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_build-bib target_image tag "raw" "iso/disk.toml")
+
+# Build a NVIDIA ISO virtual machine image
+[group('Build Virtal Machine Image')]
+build-nvidia-iso $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_build-bib target_image tag "iso" "iso/iso-nvidia.toml")
+
+# Rebuild a NVIDIA QCOW2 virtual machine image
+[group('Build Virtal Machine Image')]
+rebuild-nvidia-qcow2 $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_rebuild-nvidia-bib target_image tag "qcow2" "iso/disk.toml")
+
+# Rebuild a NVIDIA RAW virtual machine image
+[group('Build Virtal Machine Image')]
+rebuild-nvidia-raw $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_rebuild-nvidia-bib target_image tag "raw" "iso/disk.toml")
+
+# Rebuild a NVIDIA ISO virtual machine image
+[group('Build Virtal Machine Image')]
+rebuild-nvidia-iso $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_rebuild-nvidia-bib target_image tag "iso" "iso/iso-nvidia.toml")
 
 # Run a virtual machine with the specified image type and configuration
 _run-vm $target_image $tag $type $config:
@@ -304,6 +415,18 @@ spawn-vm rebuild="0" type="qcow2" ram="6G":
       --network-user-mode \
       --vsock=false --pass-ssh-key=false \
       -i ./output/**/*.{{ type }}
+
+# Run a virtual machine from a NVIDIA QCOW2 image
+[group('Run Virtal Machine')]
+run-nvidia-vm-qcow2 $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_run-vm target_image tag "qcow2" "iso/disk.toml")
+
+# Run a virtual machine from a NVIDIA RAW image
+[group('Run Virtal Machine')]
+run-nvidia-vm-raw $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_run-vm target_image tag "raw" "iso/disk.toml")
+
+# Run a virtual machine from a NVIDIA ISO
+[group('Run Virtal Machine')]
+run-nvidia-vm-iso $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_run-vm target_image tag "iso" "iso/iso-nvidia.toml")
 
 # Runs shell check on all Bash scripts
 lint:

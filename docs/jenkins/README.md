@@ -1,6 +1,6 @@
 # Guia Detalhado: Configurar Jenkins para este Repositório
 
-Este guia mostra, do zero, como configurar o Jenkins para rodar o `Jenkinsfile` deste repositório e fazer:
+Este guia mostra, do zero, como configurar o Jenkins para rodar os dois pipelines deste repositório (`ci/jenkins/Jenkinsfile.stable` e `ci/jenkins/Jenkinsfile.nvidia`) e fazer:
 
 1. build da imagem
 2. push no GHCR
@@ -10,7 +10,7 @@ Este guia mostra, do zero, como configurar o Jenkins para rodar o `Jenkinsfile` 
 
 ## 1) Como o pipeline funciona
 
-O pipeline definido em `Jenkinsfile` executa este fluxo:
+Os pipelines definidos em `ci/jenkins/Jenkinsfile.stable` e `ci/jenkins/Jenkinsfile.nvidia` executam este fluxo:
 
 - `Build Image`: build da imagem e geração de `manifest.txt` + metadados.
 - `Push GHCR`: autentica no GHCR e publica as tags.
@@ -85,8 +85,8 @@ No Pipeline job, use um bloco `withCredentials` para exportar:
 - `WEBHOOK_URL`
 - `N8N_WEBHOOK_SHARED_TOKEN`
 
-Observação: o `Jenkinsfile` deste repositório já usa Credentials Binding para autenticação no registro (`ghcr-creds`).
-Observação: o `Jenkinsfile` também usa `github-token`, `n8n-webhook-url` e `n8n-webhook-token` diretamente nos estágios/hook correspondentes.
+Observação: os `Jenkinsfile.stable`/`Jenkinsfile.nvidia` deste repositório já usam Credentials Binding para autenticação no registro (`ghcr-creds`).
+Observação: os `Jenkinsfile.stable`/`Jenkinsfile.nvidia` também usam `github-token`, `n8n-webhook-url` e `n8n-webhook-token` diretamente nos estágios/hook correspondentes.
 
 Observação: para release automation, o token GitHub precisa de permissão para releases no repositório.
 
@@ -127,7 +127,11 @@ Tabela principal criada: `ci_pipeline_runs`
 - chave única: `(job_name, build_number)`
 - armazenamento de payload em `jsonb`
 
-## 7) Criar o Job Pipeline no Jenkins
+## 7) Criar os Jobs Pipeline no Jenkins
+
+Crie **dois** jobs Pipeline, um para cada variante.
+
+### Job 1 — padrão (`bluefin-cosmic-dx`)
 
 1. `New Item`
 2. Nome: por exemplo `bluefin-main-build`
@@ -140,21 +144,47 @@ Tabela principal criada: `ci_pipeline_runs`
    - `Branches to build`:
      - enquanto estiver testando nesta branch: `*/feat/jenkins`
      - depois do merge para main: `*/main`
-   - `Script Path`: `Jenkinsfile`
+   - `Script Path`: `ci/jenkins/Jenkinsfile.stable`
 
 Salvar.
 
+- Cron: **semanal** — `H 2 * * 0` (domingo)
+- Imagem publicada: `bluefin-cosmic-dx` (`ghcr.io/ericrocha97/bluefin-cosmic-dx`)
+- Release: tag `v<data>` (ex.: `v20260101`)
+
+### Job 2 — NVIDIA (`bluefin-cosmic-dx-nvidia`)
+
+1. `New Item`
+2. Nome: por exemplo `bluefin-main-build-nvidia`
+3. Tipo: `Pipeline`
+4. Em `Pipeline`:
+   - `Definition`: `Pipeline script from SCM`
+   - `SCM`: `Git`
+   - `Repository URL`: URL deste repositório
+   - credencial Git (se necessário)
+   - `Branches to build`:
+     - enquanto estiver testando nesta branch: `*/feat/jenkins`
+     - depois do merge para main: `*/main`
+   - `Script Path`: `ci/jenkins/Jenkinsfile.nvidia`
+
+Salvar.
+
+- Cron: **diário** — `H 10 * * *`
+- Imagem publicada: `bluefin-cosmic-dx-nvidia` (`ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia`)
+- Release: tag `v<data>-nvidia` (ex.: `v20260101-nvidia`)
+
 ## 8) Trigger (cron + manual)
 
-O cron já está no `Jenkinsfile`:
+O cron já está nos `Jenkinsfile`:
 
 ```groovy
 triggers {
-  cron('H 10 * * *')
+  cron('H 2 * * 0')    // Jenkinsfile.stable (semanal, domingo)
+  cron('H 10 * * *')   // Jenkinsfile.nvidia (diário)
 }
 ```
 
-Isso agenda execução diária em horário distribuído.
+Isso agenda execução semanal (padrão) e diária (NVIDIA) em horário distribuído.
 Você também pode executar manualmente com `Build Now`.
 
 ## 9) Primeiro teste (smoke test)

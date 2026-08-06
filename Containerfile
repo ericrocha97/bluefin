@@ -34,6 +34,9 @@
 # See: https://docs.projectbluefin.io/contributing/ for architecture diagram
 ###############################################################################
 
+# Base image selection (global ARG — must be before any FROM)
+ARG BASE_IMAGE=ghcr.io/ublue-os/bluefin-dx:stable
+
 # Context stage - combine local and imported OCI container resources
 FROM scratch AS ctx
 
@@ -45,7 +48,7 @@ COPY --from=ghcr.io/projectbluefin/common:latest /system_files /oci/common
 COPY --from=ghcr.io/ublue-os/brew:latest /system_files /oci/brew
 
 # Base Image - Bluefin DX (GNOME is removed in 40-remove-gnome.sh, leaving only COSMIC)
-FROM ghcr.io/ublue-os/bluefin-dx:stable-daily
+FROM ${BASE_IMAGE}
 
 ## Alternative base images, no desktop included (uncomment to use):
 # FROM ghcr.io/ublue-os/base-main:latest
@@ -78,11 +81,14 @@ RUN rm /opt && mkdir /opt
 
 # Release tag passed from CI (e.g. v20260212), empty for local builds
 ARG RELEASE_TAG=""
+# Inherit global base image value into this stage so build scripts can read it
+ARG BASE_IMAGE
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
+    BASE_IMAGE="${BASE_IMAGE}" \
     RELEASE_TAG="${RELEASE_TAG}" \
     /ctx/build/10-build.sh
 
