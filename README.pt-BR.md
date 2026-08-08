@@ -66,6 +66,20 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 
 bluefin-cosmic-dx é uma imagem Bluefin DX focada em desenvolvimento que mantém a base Bluefin DX e entrega COSMIC como o único ambiente desktop.
 
+## Instalação
+
+Primeira instalação? Siga o guia passo a passo: **[Guia de Instalação](docs/instalacao.md)**
+
+Já está rodando Bluefin? Faça o rebase direto:
+
+```bash
+# Padrão (GPUs Intel/AMD, VMs)
+sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
+
+# NVIDIA (GPUs RTX)
+sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia:stable
+```
+
 ## O que muda nesta versão
 
 Baseado no **Bluefin DX**, esta imagem adiciona e altera:
@@ -84,10 +98,10 @@ Imagem base: `ghcr.io/ublue-os/bluefin-dx:stable`
 
 Esta imagem está disponível em duas variantes:
 
-| Variante | Imagem Base | Pacote GHCR | Para |
-|---------|-----------|-------------|------|
-| Padrão | `bluefin-dx:stable` | `ghcr.io/ericrocha97/bluefin-cosmic-dx` | GPUs Intel/AMD, VMs |
-| NVIDIA | `bluefin-dx-nvidia-open:stable-daily` | `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` | GPUs NVIDIA RTX |
+| Variante | Imagem Base                           | Pacote GHCR                                    | Para                |
+| -------- | ------------------------------------- | ---------------------------------------------- | ------------------- |
+| Padrão   | `bluefin-dx:stable`                   | `ghcr.io/ericrocha97/bluefin-cosmic-dx`        | GPUs Intel/AMD, VMs |
+| NVIDIA   | `bluefin-dx-nvidia-open:stable-daily` | `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` | GPUs NVIDIA RTX     |
 
 Ambas as variantes incluem o mesmo desktop COSMIC, otimizações de sistema e ferramentas de desenvolvimento. A variante NVIDIA adiciona os módulos de kernel NVIDIA open-source embutidos na imagem (sem necessidade de akmods/DKMS).
 
