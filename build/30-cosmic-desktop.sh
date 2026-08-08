@@ -93,6 +93,35 @@ log_success "All COSMIC packages verified successfully"
 echo "::endgroup::"
 
 ###############################################################################
+# Enable Clipboard History for Vicinae
+###############################################################################
+
+echo "::group:: Enable Clipboard Support"
+log_step "Enabling COSMIC_DATA_CONTROL_ENABLED=1 for Vicinae clipboard history..."
+
+COSMIC_DESKTOP_FILE="/usr/share/wayland-sessions/cosmic.desktop"
+if [[ -f "${COSMIC_DESKTOP_FILE}" ]]; then
+    if grep -q "COSMIC_DATA_CONTROL_ENABLED=1" "${COSMIC_DESKTOP_FILE}" 2>/dev/null; then
+        log_info "COSMIC_DATA_CONTROL_ENABLED already set in ${COSMIC_DESKTOP_FILE}"
+    else
+        sed -i \
+            's#Exec=/usr/bin/start-cosmic#Exec=env COSMIC_DATA_CONTROL_ENABLED=1 /usr/bin/start-cosmic#' \
+            "${COSMIC_DESKTOP_FILE}"
+        if grep -q "COSMIC_DATA_CONTROL_ENABLED=1" "${COSMIC_DESKTOP_FILE}"; then
+            log_success "COSMIC_DATA_CONTROL_ENABLED=1 enabled in ${COSMIC_DESKTOP_FILE}"
+        else
+            log_error "Failed to enable COSMIC_DATA_CONTROL_ENABLED"
+            exit 1
+        fi
+    fi
+else
+    log_error "COSMIC desktop file not found: ${COSMIC_DESKTOP_FILE}"
+    exit 1
+fi
+
+echo "::endgroup::"
+
+###############################################################################
 # Summary
 ###############################################################################
 

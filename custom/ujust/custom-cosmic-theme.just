@@ -198,10 +198,14 @@ setup-rose-pine-zen:
         fi
 
         if [[ -f "$root/profiles.ini" ]]; then
-            local path=$(grep -oP 'Path=\K.*' "$root/profiles.ini" | head -1)
-            if [[ -n "$path" && -d "$root/$path" ]]; then
-                echo "$root/$path"
-                return 0
+            local path
+            path=$(grep -oP 'Path=\K.*' "$root/profiles.ini" 2>/dev/null || true)
+            if [[ -n "$path" ]]; then
+                path=$(printf '%s\n' "$path" | head -1)
+                if [[ -d "$root/$path" ]]; then
+                    echo "$root/$path"
+                    return 0
+                fi
             fi
         fi
 
@@ -278,19 +282,23 @@ setup-vicinae-cosmic:
 
     echo ""
     echo "==> Enabling clipboard history"
-    DESKTOP_FILE="/usr/share/wayland-sessions/cosmic.desktop"
-    if grep -q "COSMIC_DATA_CONTROL_ENABLED=1" "$DESKTOP_FILE" 2>/dev/null; then
-        echo "Clipboard support already enabled."
+    SYSTEM_DESKTOP="/usr/share/wayland-sessions/cosmic.desktop"
+    USER_DESKTOP="$HOME/.local/share/wayland-sessions/cosmic.desktop"
+
+    if grep -q "COSMIC_DATA_CONTROL_ENABLED=1" "$SYSTEM_DESKTOP" 2>/dev/null; then
+        echo "Clipboard support already enabled in system image."
+    elif [[ -f "$USER_DESKTOP" ]] && grep -q "COSMIC_DATA_CONTROL_ENABLED=1" "$USER_DESKTOP" 2>/dev/null; then
+        echo "Clipboard support already enabled via user override."
     else
-        if sudo sed -i \
-            's#Exec=/usr/bin/start-cosmic#Exec=env COSMIC_DATA_CONTROL_ENABLED=1 /usr/bin/start-cosmic#' \
-            "$DESKTOP_FILE" 2>/dev/null; then
-            echo "Clipboard support enabled."
+        echo "Creating user-level session override..."
+        mkdir -p "$(dirname "$USER_DESKTOP")"
+        sed 's#Exec=/usr/bin/start-cosmic#Exec=env COSMIC_DATA_CONTROL_ENABLED=1 /usr/bin/start-cosmic#' \
+            "$SYSTEM_DESKTOP" > "$USER_DESKTOP"
+        if grep -q "COSMIC_DATA_CONTROL_ENABLED=1" "$USER_DESKTOP"; then
+            echo "Clipboard support enabled via $USER_DESKTOP"
         else
-            echo "Could not auto-edit $DESKTOP_FILE (read-only filesystem)."
-            echo "Edit manually as root:"
-            echo "  Exec=/usr/bin/start-cosmic"
-            echo "  -> Exec=env COSMIC_DATA_CONTROL_ENABLED=1 /usr/bin/start-cosmic"
+            echo "ERROR: Could not enable clipboard support."
+            echo "Edit $USER_DESKTOP manually and add COSMIC_DATA_CONTROL_ENABLED=1 to the Exec line."
         fi
     fi
 
@@ -445,8 +453,11 @@ uninstall-rose-pine-all:
     find "$HOME"/.zen "$HOME"/.var/app/app.zen_browser.zen/cache/zen "$HOME"/.var/app/app.zen_browser.zen/.zen \
         -maxdepth 1 -type d \( -name '*.default-release' -o -name '*.Default*' -o -name '*.default' \) 2>/dev/null \
         | while IFS= read -r prof; do
-            rm -rf "$prof/chrome"
-            echo "Removed: $prof/chrome"
+            for css_file in userChrome.css userContent.css; do
+                rm -f "$prof/chrome/$css_file"
+            done
+            rmdir "$prof/chrome" 2>/dev/null || true
+            echo "Cleaned: $prof/chrome"
         done || true
 
     echo "Removing Vicinae COSMIC shortcuts..."
