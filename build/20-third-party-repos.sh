@@ -89,7 +89,9 @@ echo "::group:: Install Vicinae"
 log_step "Installing Vicinae..."
 
 log_info "Installing official Terra release package..."
-dnf5 install -y --nogpgcheck --repofrompath "terra,https://repos.fyralabs.com/terra\$releasever" terra-release
+if ! dnf5 install -y --nogpgcheck --repofrompath "terra,https://repos.fyralabs.com/terra\$releasever" terra-release; then
+    log_warn "Terra release package unavailable (checksum/metadata issue). Will fall back to COPR for vicinae..."
+fi
 
 log_info "Installing vicinae package from Terra..."
 if ! dnf5 install -y vicinae; then
