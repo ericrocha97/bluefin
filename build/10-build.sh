@@ -81,6 +81,12 @@ dnf5 install -y earlyoom
 verify_package "earlyoom"
 log_success "earlyoom installed"
 
+# util-linux-user - provides additional utilities (runuser, sulogin, etc.)
+log_info "Installing util-linux-user..."
+dnf5 install -y util-linux-user
+verify_package "util-linux-user"
+log_success "util-linux-user installed"
+
 # ffmpegthumbnailer - Video thumbnail generation for file managers
 log_info "Installing ffmpegthumbnailer..."
 dnf5 install -y ffmpegthumbnailer
