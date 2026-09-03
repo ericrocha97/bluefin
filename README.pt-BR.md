@@ -30,7 +30,7 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 - **Ferramentas CLI**: copr-cli (gerenciamento e monitoramento de repositórios COPR)
 - **Ferramentas do Sistema**: earlyoom (prevenção de OOM), ffmpegthumbnailer (thumbnails de vídeo)
 - **Codecs**: Codecs multimídia completos via negativo17/fedora-multimedia (imagem base), com `libvdpau-va-gl` opcional quando disponível nos repositórios Fedora
-- **Apps de terceiros**: VSCode Insiders, Warp Terminal, Vicinae
+- **Apps de terceiros**: VSCode Insiders, Warp Terminal, Vicinae, OpenLogi
 
 ### Aplicações adicionadas (runtime)
 
@@ -60,7 +60,7 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 - COSMIC é a única sessão de desktop apresentada no login.
 - Comandos customizados do ujust disponíveis: install-nvm, install-sdkman, install-dev-managers.
 
-*Última atualização: 2026-08-08*
+*Última atualização: 2026-09-03*
 
 ## O que é esta imagem
 
