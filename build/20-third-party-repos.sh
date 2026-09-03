@@ -101,8 +101,8 @@ fi
 log_info "Downloading RPM from ${RPM_URL}..."
 curl -sSL -o /tmp/openlogi-latest.rpm "${RPM_URL}"
 
-log_info "Installing OpenLogi via dnf5..."
-dnf5 install -y /tmp/openlogi-latest.rpm
+log_info "Installing OpenLogi dependencies and package without scriptlets..."
+dnf5 install -y --setopt=tsflags=noscripts /tmp/openlogi-latest.rpm
 
 # Verify installation
 verify_package "openlogi"
