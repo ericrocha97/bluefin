@@ -82,6 +82,47 @@ log_success "Warp Terminal installation complete"
 echo "::endgroup::"
 
 ###############################################################################
+# OpenLogi
+###############################################################################
+
+echo "::group:: Install OpenLogi"
+log_step "Installing OpenLogi (latest release)..."
+
+log_info "Fetching latest OpenLogi release download URL from GitHub API..."
+# Capture the API response into a variable and treat transient failures (rate
+# limit, non-JSON HTML, etc.) as empty instead of aborting under set -e/pipefail.
+RELEASE_JSON=$(curl -sSL --fail https://api.github.com/repos/AprilNEA/OpenLogi/releases/latest 2>/dev/null || true)
+
+# Ensure jq is available before relying on it (base image may not ship it)
+if ! command -v jq >/dev/null 2>&1; then
+    dnf5 install -y jq
+fi
+
+if ! RPM_URL=$(printf '%s' "${RELEASE_JSON}" | jq -er '.assets[] | select(.name | test("openlogi-.*-linux-amd64\\.rpm$")) | .browser_download_url' 2>/dev/null | head -n 1); then
+    RPM_URL=""
+fi
+
+if [[ -z "${RPM_URL}" ]]; then
+    log_warn "Failed to resolve latest OpenLogi RPM URL via GitHub API. Aborting OpenLogi install."
+    exit 1
+fi
+
+log_info "Downloading RPM from ${RPM_URL}..."
+curl -sSL -o /tmp/openlogi-latest.rpm "${RPM_URL}"
+
+log_info "Installing OpenLogi dependencies and package without scriptlets..."
+dnf5 install -y --setopt=tsflags=noscripts /tmp/openlogi-latest.rpm
+
+# Verify installation
+verify_package "openlogi"
+
+log_info "Cleaning up temporary files..."
+rm -f /tmp/openlogi-latest.rpm
+
+log_success "OpenLogi installation complete"
+echo "::endgroup::"
+
+###############################################################################
 # Vicinae
 ###############################################################################
 
