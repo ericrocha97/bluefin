@@ -89,11 +89,20 @@ echo "::group:: Install OpenLogi"
 log_step "Installing OpenLogi (latest release)..."
 
 log_info "Fetching latest OpenLogi release download URL from GitHub API..."
-RPM_URL=$(curl -sSL https://api.github.com/repos/AprilNEA/OpenLogi/releases/latest \
-    | jq -r '.assets[] | select(.name | test("openlogi-.*-linux-amd64\\.rpm$")) | .browser_download_url' \
-    | head -n 1)
+# Capture the API response into a variable and treat transient failures (rate
+# limit, non-JSON HTML, etc.) as empty instead of aborting under set -e/pipefail.
+RELEASE_JSON=$(curl -sSL --fail https://api.github.com/repos/AprilNEA/OpenLogi/releases/latest 2>/dev/null || true)
 
-if [[ -z "${RPM_URL}" || "${RPM_URL}" == "null" ]]; then
+# Ensure jq is available before relying on it (base image may not ship it)
+if ! command -v jq >/dev/null 2>&1; then
+    dnf5 install -y jq
+fi
+
+if ! RPM_URL=$(printf '%s' "${RELEASE_JSON}" | jq -er '.assets[] | select(.name | test("openlogi-.*-linux-amd64\\.rpm$")) | .browser_download_url' 2>/dev/null | head -n 1); then
+    RPM_URL=""
+fi
+
+if [[ -z "${RPM_URL}" ]]; then
     log_warn "Failed to resolve latest OpenLogi RPM URL via GitHub API. Aborting OpenLogi install."
     exit 1
 fi
