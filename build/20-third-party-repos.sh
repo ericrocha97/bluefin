@@ -82,6 +82,38 @@ log_success "Warp Terminal installation complete"
 echo "::endgroup::"
 
 ###############################################################################
+# OpenLogi
+###############################################################################
+
+echo "::group:: Install OpenLogi"
+log_step "Installing OpenLogi (latest release)..."
+
+log_info "Fetching latest OpenLogi release download URL from GitHub API..."
+RPM_URL=$(curl -sSL https://api.github.com/repos/AprilNEA/OpenLogi/releases/latest \
+    | jq -r '.assets[] | select(.name | test("openlogi-.*-linux-amd64\\.rpm$")) | .browser_download_url' \
+    | head -n 1)
+
+if [[ -z "${RPM_URL}" || "${RPM_URL}" == "null" ]]; then
+    log_warn "Failed to resolve latest OpenLogi RPM URL via GitHub API. Aborting OpenLogi install."
+    exit 1
+fi
+
+log_info "Downloading RPM from ${RPM_URL}..."
+curl -sSL -o /tmp/openlogi-latest.rpm "${RPM_URL}"
+
+log_info "Installing OpenLogi via dnf5..."
+dnf5 install -y /tmp/openlogi-latest.rpm
+
+# Verify installation
+verify_package "openlogi"
+
+log_info "Cleaning up temporary files..."
+rm -f /tmp/openlogi-latest.rpm
+
+log_success "OpenLogi installation complete"
+echo "::endgroup::"
+
+###############################################################################
 # Vicinae
 ###############################################################################
 
