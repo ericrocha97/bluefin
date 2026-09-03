@@ -28,7 +28,7 @@ Here are the changes from Bluefin DX. This image is based on Bluefin and include
   - System components: wallpapers, icons, notifications, OSD, app library, workspaces manager
   - Desktop portal integration (xdg-desktop-portal-cosmic)
 - **CLI Tools**: copr-cli (COPR repository management and monitoring)
-- **System Tools**: earlyoom (OOM prevention), ffmpegthumbnailer (video thumbnails)
+- **System Tools**: earlyoom (OOM prevention), ffmpegthumbnailer (video thumbnails), util-linux-user (additional system utilities like `runuser` and `sulogin`)
 - **Codecs**: Full multimedia codecs via negativo17/fedora-multimedia (base image), plus optional `libvdpau-va-gl` when available in Fedora repos
 - **Third-party apps**: VSCode Insiders, Warp Terminal, Vicinae
 
@@ -60,7 +60,7 @@ Here are the changes from Bluefin DX. This image is based on Bluefin and include
 - COSMIC is the only desktop session presented at login.
 - Custom ujust commands available: install-nvm, install-sdkman, install-dev-managers.
 
-*Last updated: 2026-08-08*
+*Last updated: 2026-09-03*
 
 ## What is this image
 
