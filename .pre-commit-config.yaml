@@ -14,7 +14,7 @@ repos:
     hooks:
       - id: validate-brewfiles
         name: Validate Brewfiles
-        entry: bash -c 'if command -v brew &> /dev/null; then for file in brew/*.Brewfile*; do [ -f "$file" ] || continue; brew bundle check --file="$file" || exit 1; done; else echo "⚠️  Homebrew not installed, skipping Brewfile validation"; fi'
+        entry: bash build/validate-brewfiles.sh custom/brew
         language: system
-        files: '^brew/.*\.Brewfile.*$'
+        files: '^custom/brew/.*\.Brewfile.*$'
         pass_filenames: false

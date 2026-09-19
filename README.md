@@ -34,7 +34,7 @@ Here are the changes from Bluefin DX. This image is based on Bluefin and include
 
 ### Added Applications (Runtime)
 
-- **CLI Tools (Homebrew)**: None (no Brewfiles included yet).
+- **CLI Tools (Homebrew)**: `rtk` (CLI proxy that minimizes LLM token consumption) and `topgrade` (upgrades all the things — system packages, Homebrew, and more with one command). Install them at runtime with `ujust install-default-apps`.
 - **GUI Apps (Flatpak)**: Zen Browser.
 
 ### Removed/Disabled
@@ -58,9 +58,9 @@ Here are the changes from Bluefin DX. This image is based on Bluefin and include
 
 - COSMIC Greeter is enabled as the default login manager.
 - COSMIC is the only desktop session presented at login.
-- Custom ujust commands available: install-nvm, install-sdkman, install-dev-managers.
+- Custom ujust commands available: install-nvm, install-sdkman, install-dev-managers, install-default-apps.
 
-*Last updated: 2026-09-03*
+*Last updated: 2026-09-16*
 
 ## What is this image
 
@@ -146,15 +146,16 @@ just --list             # Show all available commands
 
 **Custom ujust commands (in the image):**
 
-This image includes custom `ujust` commands for development managers:
+This image includes custom `ujust` commands for development managers and runtime CLI tools:
 
 ```bash
 ujust install-nvm
 ujust install-sdkman
 ujust install-dev-managers
+ujust install-default-apps   # installs rtk and topgrade from default.Brewfile
 ```
 
-There are no Brewfiles included by default. If you add `.Brewfile` files (matching the `*.Brewfile` pattern) anywhere in `custom/brew/`, they will be copied during build automatically.
+`custom/brew/default.Brewfile` ships with `rtk` and `topgrade`. If you add more `.Brewfile` files (matching the `*.Brewfile` pattern) anywhere in `custom/brew/`, they will be copied during build automatically.
 
 **Complete workflow:**
 

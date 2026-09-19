@@ -34,7 +34,7 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 
 ### Aplicações adicionadas (runtime)
 
-- **Ferramentas CLI (Homebrew)**: Nenhuma (ainda sem Brewfiles).
+- **Ferramentas CLI (Homebrew)**: `rtk` (proxy de CLI que minimiza o consumo de tokens de LLM) e `topgrade` (atualiza tudo — pacotes do sistema, Homebrew e mais com um único comando). Instale em runtime com `ujust install-default-apps`.
 - **Apps GUI (Flatpak)**: Zen Browser.
 
 ### Removidos/Desativados
@@ -58,9 +58,9 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 
 - COSMIC Greeter é habilitado como gerenciador de login padrão.
 - COSMIC é a única sessão de desktop apresentada no login.
-- Comandos customizados do ujust disponíveis: install-nvm, install-sdkman, install-dev-managers.
+- Comandos customizados do ujust disponíveis: install-nvm, install-sdkman, install-dev-managers, install-default-apps.
 
-*Última atualização: 2026-09-03*
+*Última atualização: 2026-09-16*
 
 ## O que é esta imagem
 
@@ -142,15 +142,16 @@ just --list             # Mostra todos os comandos disponíveis
 
 **Comandos ujust customizados (na imagem):**
 
-Esta imagem inclui comandos `ujust` para gerenciadores de desenvolvimento:
+Esta imagem inclui comandos `ujust` para gerenciadores de desenvolvimento e ferramentas CLI de runtime:
 
 ```bash
 ujust install-nvm
 ujust install-sdkman
 ujust install-dev-managers
+ujust install-default-apps   # instala rtk e topgrade a partir do default.Brewfile
 ```
 
-Não existem Brewfiles por padrão. Se você adicionar arquivos `.Brewfile` (correspondentes ao padrão `*.Brewfile`) em qualquer lugar dentro de `custom/brew/`, eles serão copiados durante o build automaticamente.
+O `custom/brew/default.Brewfile` inclui `rtk` e `topgrade`. Se você adicionar mais arquivos `.Brewfile` (correspondentes ao padrão `*.Brewfile`) em qualquer lugar dentro de `custom/brew/`, eles serão copiados durante o build automaticamente.
 
 **Fluxo completo:**
 

@@ -451,3 +451,10 @@ format:
     fi
     # Run shfmt on all Bash scripts
     /usr/bin/find . -iname "*.sh" -type f -exec shfmt --write "{}" ';'
+
+# Validate Brewfiles fail-closed without evaluating them as Ruby
+[group('Utility')]
+validate-brewfiles:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bash build/validate-brewfiles.sh custom/brew

@@ -20,9 +20,14 @@ Brewfiles are Homebrew's way of declaring packages in a declarative format. They
 2. Add your desired packages using Brewfile syntax
 3. Build your image - the Brewfiles will be copied to `/usr/share/ublue-os/homebrew/`
 
-**No Brewfiles are included by default.** If you want to add some later, create your own files, for example:
+**`default.Brewfile` is included** and ships two runtime CLI tools: `rtk` (CLI proxy that minimizes LLM token consumption) and `topgrade` (upgrades everything with one command). Inside the image, install them with:
 
-- `default.Brewfile` - Essential command-line tools
+```bash
+ujust install-default-apps
+```
+
+To add more tools, create additional files, for example:
+
 - `development.Brewfile` - Development tools and languages
 - `fonts.Brewfile` - Programming fonts
 
@@ -55,8 +60,8 @@ cask "visual-studio-code"
 
 ## Customization
 
-Create new files like:
-- `default.Brewfile` - Essential tools
+`default.Brewfile` is already shipped with the image (see above). To add more tools, create
+additional optional files, for example:
 - `development.Brewfile` - Dev stack
 - `fonts.Brewfile` - Fonts
 - `gaming.Brewfile`, `media.Brewfile`, etc.
