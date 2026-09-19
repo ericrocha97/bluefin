@@ -10,7 +10,7 @@ set -eoux pipefail
 #
 # Installs:
 #   - CachyOS sysctl tweaks (VM, network, kernel)
-#   - udev rules (IO schedulers, audio PM, SATA, HPET)
+#   - udev rules (IO schedulers, audio PM, SATA, HPET, GPU reset)
 #   - modprobe configs (NVIDIA, AMD, blacklist)
 #   - tmpfiles configs (Transparent Huge Pages)
 #   - journald size limits
@@ -49,7 +49,7 @@ fi
 # Copy all system config files preserving directory structure
 log_info "Copying system configuration files..."
 cp -rv "${SYSTEM_FILES_DIR}"/usr/lib/udev/rules.d/* /usr/lib/udev/rules.d/
-log_success "Copied udev rules (IO schedulers, audio PM, SATA, HPET, etc.)"
+log_success "Copied udev rules (IO schedulers, audio PM, SATA, HPET, GPU reset, etc.)"
 
 cp -rv "${SYSTEM_FILES_DIR}"/usr/lib/sysctl.d/* /usr/lib/sysctl.d/
 log_success "Copied sysctl configs (CachyOS VM/network/kernel tweaks)"
@@ -132,6 +132,7 @@ log_success "All LinuxToys/CachyOS optimizations applied:"
 log_info "  ✓ CachyOS sysctl tweaks (swappiness, vfs_cache_pressure, dirty bytes, etc.)"
 log_info "  ✓ IO scheduler rules (BFQ for HDD, mq-deadline for SSD, none for NVMe)"
 log_info "  ✓ Audio power management rules"
+log_info "  ✓ GPU reset recovery rule (kill offending PID, restart cosmic-greeter)"
 log_info "  ✓ NVIDIA/AMD modprobe optimizations"
 log_info "  ✓ Transparent Huge Pages (defer+madvise, shrinker at 80%)"
 log_info "  ✓ Journal size limited to 50MB"

@@ -458,3 +458,10 @@ validate-brewfiles:
     #!/usr/bin/env bash
     set -euo pipefail
     bash build/validate-brewfiles.sh custom/brew
+
+# Validate flatpak preinstall files fail-closed against flathub
+[group('Utility')]
+validate-flatpaks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bash build/validate-flatpaks.sh custom/flatpaks

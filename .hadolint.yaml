@@ -1,0 +1,16 @@
+---
+# Hadolint configuration for this repository's Containerfile.
+# https://github.com/hadolint/hadolint
+#
+# Keep this list minimal: each entry is a deliberate, local design decision,
+# not a blanket disable. Every other default rule must keep passing.
+ignored:
+  # The base image is ARG-interpolated (`ARG BASE_IMAGE` before `FROM
+  # ${BASE_IMAGE}`) so one Containerfile builds both the standard and NVIDIA
+  # variants, and the commented alternative `FROM` lines follow the same
+  # pattern. Hadolint cannot resolve a tag from an ARG, so do not require one.
+  - DL3006
+  # The build is split into separate, cacheable RUN layers (image-info,
+  # package build, cleanup, lint) whose `--mount=` flags intentionally differ.
+  # Do not consolidate these into a single RUN.
+  - DL3059

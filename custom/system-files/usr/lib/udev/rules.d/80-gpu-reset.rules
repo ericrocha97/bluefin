@@ -1,0 +1,13 @@
+# Credits: https://github.com/ublue-os/bazzite/blob/main/system_files/desktop/kinoite/usr/lib/udev/rules.d/80-gpu-reset.rules
+# Ported by LinuxToys (psygreg/linuxtoys) for Universal Blue and adapted for bluefin-cosmic-dx.
+#
+# Adaptations for this image:
+#   - Match any DRI card (card[0-9]) instead of only card0, as LinuxToys does.
+#   - Restart cosmic-greeter instead of SDDM: this image has neither SDDM nor Gamescope.
+#   - Use the Fedora/usrmerge absolute paths for kill(1) and systemctl(1).
+
+# If a GPU crash is caused by a specific process, kill the PID.
+ACTION=="change", ENV{DEVNAME}=="/dev/dri/card[0-9]", ENV{RESET}=="1", ENV{PID}!="0", RUN+="/usr/bin/kill -9 %E{PID}"
+
+# Restart the display manager if the GPU crashes and VRAM is lost.
+ACTION=="change", ENV{DEVNAME}=="/dev/dri/card[0-9]", ENV{RESET}=="1", ENV{FLAGS}=="1", RUN+="/usr/bin/systemctl restart cosmic-greeter"

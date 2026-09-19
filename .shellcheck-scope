@@ -1,0 +1,17 @@
+# Single source of truth for "which shell scripts this repository lints".
+#
+# Consumers:
+#   - tests/unit/shellcheck-scope_test.bats, which fails if a build script
+#     matches none of the patterns below.
+#   - Informational mirror of `just lint`, which currently walks the whole
+#     tree with `find . -iname "*.sh"`. The recipe is intentionally left as-is
+#     so this manifest does not change the local lint scope; see the Task 3
+#     report for why it is not wired into the recipe.
+#
+# One bash glob per line. Patterns are expanded from the repository root with
+# `shopt -s globstar nullglob`, so `**` crosses directories. Blank lines and
+# lines beginning with `#` are ignored. Do not add trailing whitespace or
+# inline comments: the contract test rejects whitespace outside comment lines.
+build/**/*.sh
+ci/**/*.sh
+custom/**/*.sh

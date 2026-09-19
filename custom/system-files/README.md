@@ -26,6 +26,7 @@ Instead of installing the RPM as a layered package at runtime, we bake these con
 | `usr/lib/udev/rules.d/50-sata.rules` | SATA link power management |
 | `usr/lib/udev/rules.d/40-hpet-permissions.rules` | HPET device permissions for low-latency apps |
 | `usr/lib/udev/rules.d/69-hdparm.rules` | Hard drive parameter configuration |
+| `usr/lib/udev/rules.d/80-gpu-reset.rules` | Recovers from GPU resets: kills the offending PID and restarts cosmic-greeter on VRAM loss (adapted from Bazzite) |
 | `usr/lib/udev/rules.d/99-cpu-dma-latency.rules` | CPU DMA latency tuning |
 
 ### modprobe — GPU Driver Options
@@ -55,7 +56,6 @@ Instead of installing the RPM as a layered package at runtime, we bake these con
 |------|-------------|
 | `etc/default/earlyoom` | earlyoom: 5% memory/swap threshold, D-Bus notifications, protects desktop processes |
 | `etc/rpm-ostreed.conf.d/10-auto-updates.conf` | Enables automatic update staging (applied on reboot) |
-| `usr/share/glib-2.0/schemas/99-custom.gschema.override` | GNOME mutter check-alive-timeout = 20s |
 
 ### Fastfetch — Custom Terminal Info
 
