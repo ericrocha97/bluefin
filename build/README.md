@@ -55,10 +55,14 @@ echo "Running custom setup..."
 
 ### Disabling Scripts
 
-To temporarily disable a script without deleting it:
+`10-build.sh` runs every file matching `/ctx/build/[1-9][0-9]*-*.sh` with
+`/usr/bin/bash`, so the execute bit does not control discovery.
 
-- Rename it with `.disabled` extension: `20-script.sh.disabled`
-- Or remove execute permission: `chmod -x build/20-script.sh`
+- To disable a script without deleting it, rename it so it no longer matches the
+  glob: `20-script.sh.disabled`
+- Or remove the file if it is no longer needed
+
+Do **not** rely on `chmod -x`: it does not disable a script here.
 
 ## Execution Order
 

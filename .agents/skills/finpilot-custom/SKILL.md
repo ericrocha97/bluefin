@@ -56,7 +56,7 @@ command).
 | File | Purpose |
 | --- | --- |
 | `custom/brew/default.Brewfile` | Shipped runtime CLI tools (`rtk`, `topgrade`) |
-| Custom `*.Brewfile` | Create as needed (e.g. `development.Brewfile`, `fonts.Brewfile`) |
+| Custom `*.Brewfile` | None ship today; future optional files (e.g. a `development.Brewfile` or `fonts.Brewfile`) only if a real need arises |
 
 ### Syntax
 

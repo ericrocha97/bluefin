@@ -26,6 +26,18 @@ check:
     echo "Checking syntax: Justfile"
     just --unstable --fmt --check -f Justfile
 
+# Run the BATS unit test suite
+[group('Just')]
+test-unit:
+    #!/usr/bin/bash
+    set -euo pipefail
+    if ! command -v bats &>/dev/null; then
+        echo "bats not found. Install with: sudo apt-get install bats  OR  npm install -g bats"
+        exit 1
+    fi
+    echo "Running unit tests..."
+    bats tests/unit/
+
 # Fix Just Syntax
 [group('Just')]
 fix:
@@ -120,6 +132,40 @@ build-nvidia $target_image=image_name_nvidia $tag=default_tag:
         --pull=newer \
         --tag "${target_image}:${tag}" \
         .
+
+# Apply extra local tags to an already-built image.
+#
+# Local-only Podman helper: it never pushes and never rewrites an existing tag.
+# Jenkins builds and publishes images with its own docker tag/push pipeline, so
+# CI must not depend on this recipe.
+
+# Example: just tag-images bluefin-cosmic-dx stable "latest 43 candidate"
+[group('Image')]
+tag-images $image_name="" $default_tag="" $tags="":
+    #!/usr/bin/bash
+    set -euo pipefail
+
+    if [[ -z "${image_name}" || -z "${default_tag}" || -z "${tags}" ]]; then
+        echo "Usage: just tag-images <image_name> <default_tag> <tags>"
+        exit 1
+    fi
+
+    if ! command -v podman &>/dev/null; then
+        echo "podman could not be found. This is a local-only helper." >&2
+        exit 1
+    fi
+
+    image_id="$(podman image inspect "${image_name}:${default_tag}" | jq -r '.[].Id')"
+    if [[ -z "${image_id}" || "${image_id}" == "null" ]]; then
+        echo "Image ${image_name}:${default_tag} not found in local Podman storage." >&2
+        exit 1
+    fi
+
+    for tag in ${tags}; do
+        podman tag "${image_id}" "${image_name}:${tag}"
+    done
+
+    echo "Tagged ${image_name}:${default_tag} with: ${tags}"
 
 # Command: _rootful_load_image
 # Description: This script checks if the current user is root or running under sudo. If not, it attempts to resolve the image tag using podman inspect.
@@ -427,6 +473,23 @@ run-nvidia-vm-raw $target_image=("localhost/" + image_name_nvidia) $tag=default_
 # Run a virtual machine from a NVIDIA ISO
 [group('Run Virtal Machine')]
 run-nvidia-vm-iso $target_image=("localhost/" + image_name_nvidia) $tag=default_tag: && (_run-vm target_image tag "iso" "iso/iso-nvidia.toml")
+
+# Expand .shellcheck-scope into the list of shell scripts under lint
+[private]
+shell-sources:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    shopt -s globstar nullglob
+    [[ -f .shellcheck-scope ]] || { echo ".shellcheck-scope is missing" >&2; exit 1; }
+    while IFS= read -r pattern || [[ -n "${pattern}" ]]; do
+        pattern="${pattern%%#*}"
+        pattern="${pattern#"${pattern%%[![:space:]]*}"}"
+        pattern="${pattern%"${pattern##*[![:space:]]}"}"
+        [[ -z "${pattern}" ]] && continue
+        for f in ${pattern}; do
+            [[ -f "${f}" ]] && printf '%s\n' "${f}"
+        done
+    done < .shellcheck-scope
 
 # Runs shell check on all Bash scripts
 lint:

@@ -28,7 +28,7 @@ signing disabled** in this scope.
 | [`finpilot-maintain`](finpilot-maintain/SKILL.md) | Ongoing work: Renovate PRs, README raptor updates, local test loops. |
 | [`finpilot-troubleshooting`](finpilot-troubleshooting/SKILL.md) | Symptom → cause → fix tables for build, CI, and runtime issues. |
 | [`finpilot-pr-checklist`](finpilot-pr-checklist/SKILL.md) | Pre-commit and per-change-type validation checklists. |
-| [`finpilot-examples`](finpilot-examples/SKILL.md) | Example scripts and the `.example` → `.sh` activation pattern. |
+| [`finpilot-examples`](finpilot-examples/SKILL.md) | Numbered build-script examples and the `[1-9][0-9]*-*.sh` discovery pattern. |
 | [`skill-improvement`](skill-improvement/SKILL.md) | Capture durable, repository-specific operational learning. |
 
 Looking for "I need to… → which skill?" — that table lives in

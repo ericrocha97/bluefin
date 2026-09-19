@@ -105,3 +105,43 @@ recipe_body() {
     run grep -nE '(^|[^A-Za-z0-9_-])(dnf5|rpm-ostree)([^A-Za-z0-9_-]|$)' "${JUSTFILE}"
     [ "${status}" -ne 0 ]
 }
+
+@test "Justfile: test-unit runs the BATS suite with a missing-tool guard" {
+    run recipe_body test-unit
+
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"command -v bats"* ]]
+    [[ "${output}" == *"bats tests/unit/"* ]]
+}
+
+@test "Justfile: shell-sources is private and expands .shellcheck-scope" {
+    # The attribute must sit directly above the recipe header.
+    run bash -c "grep -B1 -F 'shell-sources:' '${JUSTFILE}'"
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"[private]"* ]]
+
+    run recipe_body shell-sources
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"shopt -s globstar nullglob"* ]]
+    [[ "${output}" == *".shellcheck-scope"* ]]
+    # Fail loudly instead of silently expanding to nothing.
+    [[ "${output}" == *"is missing"* ]]
+}
+
+@test "Justfile: tag-images is a local Podman-only helper" {
+    run recipe_body tag-images
+
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"Usage: just tag-images"* ]]
+    [[ "${output}" == *"podman tag"* ]]
+    # Never publish local tags to a registry.
+    [[ "${output}" != *"podman push"* ]]
+    [[ "${output}" != *"docker push"* ]]
+    [[ "${output}" != *"skopeo copy"* ]]
+}
+
+@test "Justfile: Jenkins pipelines never call tag-images" {
+    local repo_root="${BATS_TEST_DIRNAME}/../.."
+    run grep -R -F 'tag-images' "${repo_root}/ci/jenkins"
+    [ "${status}" -ne 0 ]
+}

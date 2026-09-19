@@ -16,6 +16,27 @@ It builds a COSMIC-only custom bootc image based on Bluefin DX, using the multi-
 - Published image registries: `ghcr.io/ericrocha97/bluefin-cosmic-dx` (standard) and `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` (NVIDIA).
 - GitHub Actions (`.github/workflows/build.yml`) now runs only as a PR check (`pull_request` for `main`) and does not publish images.
 
+## Guided Copilot Mode
+
+This repository is meant to be worked on with a coding agent (GitHub Copilot, OpenCode, or similar) using the standard fork workflow:
+
+- Never commit directly to `main`; create a feature branch and open a pull request against `main`.
+- Use Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, ...) for every commit and PR title.
+- Run the light checks locally before pushing: `just check`, `just lint`, `bats tests/unit/`, `bash ci/jenkins/tests/run-all.sh`, and `git diff --check`. A full image build is not required locally.
+- GitHub Actions validates the pull request (image build as a PR check, unit tests, shellcheck, Brewfile/Flatpak/just/Renovate/Jenkins checks). It never publishes or signs images.
+- Production images are built and published by Jenkins from `main` only — see [Promote to Stable](#promote-to-stable).
+- Do not claim that images are signed: cosign signing is out of scope for this repository. See [Optional: Enable Image Signing](#optional-enable-image-signing).
+
+## Promote to Stable
+
+`main` is the production branch. Promote changes by merging a pull request into `main`; never push to `main` directly.
+
+- **Standard image** — `ci/jenkins/Jenkinsfile.stable` builds and publishes `ghcr.io/ericrocha97/bluefin-cosmic-dx` (scheduled weekly, `H 2 * * 0`).
+- **NVIDIA image** — `ci/jenkins/Jenkinsfile.nvidia` builds and publishes `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` (scheduled daily, `H 10 * * *`).
+- Each run builds with Docker, pushes the GHCR tags `stable`, `stable.YYYYMMDD`, and `YYYYMMDD`, then creates the GitHub release (`v<date>` for the standard image, `v<date>-nvidia` for NVIDIA) and notifies n8n.
+- The GHCR push and release stages are gated on the effective branch being `main`, so they are skipped elsewhere.
+- GitHub Actions never publishes images here; it only performs PR/light validation plus scheduled maintenance (Renovate updates and image cleanup). Images published by Jenkins are unsigned.
+
 ## What Makes this Raptor Different?
 
 Here are the changes from Bluefin DX. This image is based on Bluefin and includes these customizations:
