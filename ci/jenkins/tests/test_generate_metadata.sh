@@ -38,6 +38,7 @@ assert_file_contains "$LABELS_FILE" "io.artifacthub.package.readme-url=https://r
 assert_file_contains "$LABELS_FILE" "io.artifacthub.package.deprecated=false"
 assert_file_contains "$LABELS_FILE" "io.artifacthub.package.keywords=bootc,ublue,universal-blue,cosmic,cosmic-dx,custom-image"
 assert_file_contains "$LABELS_FILE" "io.artifacthub.package.license=Apache-2.0"
+assert_file_contains "$LABELS_FILE" 'io.artifacthub.package.maintainers=[{"name":"Eric Rocha","email":"eric.rocha@ericrocha.dev"}]'
 assert_file_contains "$LABELS_FILE" "io.artifacthub.package.prerelease=false"
 assert_file_contains "$LABELS_FILE" "containers.bootc=1"
 

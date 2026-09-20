@@ -25,7 +25,7 @@ Este repositório foi feito para ser trabalhado com um agente de código (GitHub
 - Rode os checks leves localmente antes de enviar: `just check`, `just lint`, `bats tests/unit/`, `bash ci/jenkins/tests/run-all.sh` e `git diff --check`. Um build completo da imagem não é obrigatório localmente.
 - O GitHub Actions valida o pull request (build da imagem como check de PR, testes unitários, shellcheck, checagens de Brewfile/Flatpak/just/Renovate/Jenkins). Ele nunca publica nem assina imagens.
 - As imagens de produção são construídas e publicadas pelo Jenkins somente a partir da `main` — veja [Promover para Stable](#promover-para-stable).
-- Não afirme que as imagens são assinadas: assinatura com cosign está fora do escopo deste repositório. Veja [Opcional: Habilitar assinatura de imagem](#opcional-habilitar-assinatura-de-imagem).
+- As imagens de produção são assinadas pelo Jenkins com Cosign (chave tradicional). Não afirme que o GitHub Actions assina ou publica algo: ele roda apenas em PRs. Veja [Assinatura e verificação de imagem](#assinatura-e-verificação-de-imagem).
 
 ## Promover para Stable
 
@@ -35,7 +35,7 @@ A `main` é a branch de produção. Promova mudanças fazendo merge de um pull r
 - **Imagem NVIDIA** — `ci/jenkins/Jenkinsfile.nvidia` constrói e publica `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` (agendado diariamente, `H 10 * * *`).
 - Cada execução constrói com Docker, envia as tags GHCR `stable`, `stable.YYYYMMDD` e `YYYYMMDD`, depois cria o release no GitHub (`v<date>` para a imagem padrão, `v<date>-nvidia` para a NVIDIA) e notifica o n8n.
 - Os estágios de push no GHCR e de release são condicionados à branch efetiva ser a `main`, então são ignorados em qualquer outro lugar.
-- O GitHub Actions nunca publica imagens aqui; ele apenas faz validação de PR/leve e manutenção agendada (atualizações do Renovate e limpeza de imagens). As imagens publicadas pelo Jenkins não são assinadas.
+- O GitHub Actions nunca publica imagens aqui; ele apenas faz validação de PR/leve e manutenção agendada (atualizações do Renovate e limpeza de imagens). O Jenkins assina os digests publicados com Cosign.
 
 ## O que torna este Raptor diferente?
 
@@ -209,15 +209,66 @@ sudo bootc switch ghcr.io/ublue-os/bluefin-dx:stable
 sudo systemctl reboot
 ```
 
-## Opcional: Habilitar assinatura de imagem
+## Assinatura e verificação de imagem
 
-A assinatura de imagem é opcional. O repositório mantém etapas de assinatura com Cosign em `.github/workflows/build.yml` para reuso futuro, mas esse workflow atualmente roda apenas em checks de PR e não publica/assina imagens de release.
+As imagens de produção são assinadas pelos pipelines do Jenkins com **Cosign**,
+usando um par de chaves tradicional. O GitHub Actions roda apenas em pull
+requests e nunca publica nem assina um release.
 
-- Gere as chaves com `cosign generate-key-pair`
-- Adicione o conteúdo da chave privada como segredo `SIGNING_SECRET` no repositório
-- Mantenha `cosign.key` privado (nunca faça commit); apenas `cosign.pub` pode ser versionado
+- **Credenciais do Jenkins**: os pipelines leem a chave privada da credencial
+  `cosign_key` (`Secret file`) e a senha da chave da credencial `cosign_pass`
+  (`Secret text`). Configure as duas em `Manage Jenkins → Credentials`, no
+  escopo usado pelos dois jobs.
+- **Assinatura por digest**: depois do `Push GHCR`, cada pipeline registra o
+  digest publicado e assina `IMAGE_REPOSITORY@sha256:<digest>` em um estágio
+  `Sign Image` condicionado à branch `main`. Tags sozinhas nunca são assinadas.
+  O helper é `ci/jenkins/scripts/sign_image.sh`; o mesmo fluxo cobre as
+  variantes padrão (`bluefin-cosmic-dx`) e NVIDIA (`bluefin-cosmic-dx-nvidia`).
+- **Chave pública**: `cosign.pub` é versionado neste repositório. A chave privada
+  `cosign.key` nunca é commitada (está listada no `.gitignore`).
+- **Verificação**: verifique um digest publicado contra a chave pública
+  versionada (uma tag como `:stable` também funciona, pois resolve para o digest
+  assinado):
 
-Se no futuro você reativar build de release no GitHub Actions, essas etapas de assinatura podem ser usadas lá novamente. No fluxo atual de produção, o Jenkins é responsável por build/publicação.
+  ```bash
+  cosign verify --key cosign.pub \
+    ghcr.io/ericrocha97/bluefin-cosmic-dx@sha256:<digest>
+  cosign verify --key cosign.pub \
+    ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia@sha256:<digest>
+  ```
+
+### Ativando a verificação de assinatura do bootc
+
+A imagem inclui uma política estrita de assinatura de containers e a chave
+pública correspondente. A política rejeita imagens não assinadas por padrão e
+aceita apenas imagens assinadas dos repositórios GHCR padrão e NVIDIA deste
+projeto. Ela não é ativada automaticamente, pois a política usada no primeiro
+switch vem do sistema que está rodando naquele momento.
+
+Em uma instalação nova, faça o primeiro switch normalmente, reinicie no novo
+sistema e ative a verificação uma vez:
+
+```bash
+sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
+sudo systemctl reboot
+sudo bootc switch --enforce-container-sigpolicy \
+  ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
+```
+
+Use `bluefin-cosmic-dx-nvidia:stable` em sistemas NVIDIA. Instalações
+existentes podem usar o mesmo bootstrap em duas etapas: execute `bootc
+upgrade`, reinicie e depois repita o `bootc switch` com
+`--enforce-container-sigpolicy`. A partir daí, os próximos `bootc upgrade`
+usarão a política estrita. Também é possível verificar a primeira transição
+instalando manualmente os arquivos da política no sistema atual antes do
+switch.
+
+A política bloqueia intencionalmente pulls de containers não assinados em outros
+registros via `podman`. Esse é o trade-off esperado do enforcement estrito;
+adicione registros confiáveis localmente se seu fluxo precisar deles.
+
+- **Fora do escopo**: attestations, SBOM, provenance e rechunking **não** fazem
+  parte deste fluxo. Não os confunda com a assinatura Cosign.
 
 ## Login COSMIC
 

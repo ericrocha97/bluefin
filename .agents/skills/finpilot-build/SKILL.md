@@ -197,7 +197,7 @@ script-syntax change.
 - A third-party repo file left in `/etc/yum.repos.d/` after install
 - Editing `Containerfile` or a `build/*.sh` script without running shellcheck
 - Adding a numbered script but not matching `/ctx/build/[1-9][0-9]*-*.sh`
-- Claiming the image is signed, or adding signing steps to the build
+- Adding signing steps to the image build (Cosign signing lives in the Jenkins pipelines, not in `build/*.sh`)
 - Making `just build` a required step for a change that only touches docs
 - Hardcoding the image name where `${IMAGE_NAME}` is used
 

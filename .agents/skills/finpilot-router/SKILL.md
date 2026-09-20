@@ -46,8 +46,8 @@ description: >-
 
 This repository is a downstream custom image, not the upstream finpilot
 template. Keep the routes aligned with the local facts: Bluefin DX base via
-`ARG BASE_IMAGE`, Jenkins publication for the standard and NVIDIA variants,
-GitHub Actions for PR checks, and cosign signing disabled.
+`ARG BASE_IMAGE`, Jenkins publication and Cosign signing for the standard and
+NVIDIA variants, and GitHub Actions for PR checks only.
 
 ## Common Rationalizations
 
@@ -55,7 +55,7 @@ GitHub Actions for PR checks, and cosign signing disabled.
 | -------------------------------------------------------- | ---------------------------------------------------- |
 | "The router table is in AGENTS.md — update it there."    | AGENTS.md holds rules. This skill owns the routing table, so it stays in sync with the skill set. |
 | "Every skill should list where it fits."                 | One table means one place to update; skills point here instead. |
-| "Copy the finpilot routes verbatim."                     | Upstream routes assume `projectbluefin/actions` and signing; this repo uses Jenkins and disabled signing. Adapt before routing. |
+| "Copy the finpilot routes verbatim."                     | Upstream routes assume `projectbluefin/actions` and keyless/OIDC signing; this repo uses Jenkins for build, publish and Cosign signing. Adapt before routing. |
 
 ## Red Flags
 

@@ -37,7 +37,7 @@ This repository is already an initialized fork. Use this skill to bootstrap a
 5. **Configure branch protection** for `main`
 6. **Trigger the first build** (GitHub Actions PR check; production is Jenkins)
 7. **Add the "What Makes this Raptor Different" section to README** (template below)
-8. **Confirm the signing state** — cosign stays disabled in this scope
+8. **Confirm the signing state** — Jenkins signs published digests with Cosign
 
 Keep day-one changes minimal and iterate in phases:
 
@@ -147,14 +147,24 @@ configuration change — see the update rules in `finpilot-maintain`.
 
 ## Signing
 
-**Cosign signing is disabled in this scope.** First builds publish unsigned
-images, and no release gate requires a signature. Do not document local builds
-or releases as signed.
+**Cosign signing (traditional key) is enabled in the Jenkins production
+pipelines.** After `Push GHCR`, each pipeline signs the published digest
+(`IMAGE_REPOSITORY@sha256:<digest>`) in a `Sign Image` stage gated on `main`,
+using the Jenkins credentials `cosign_key` (`Secret file`) and `cosign_pass`
+(`Secret text`) through `ci/jenkins/scripts/sign_image.sh`.
 
-- Keep signing out of the bootstrap path.
+- Configure the two Jenkins credentials during onboarding; a first release build
+  fails at `Sign Image` if they are missing.
+- `cosign.pub` is versioned for verification:
+  `cosign verify --key cosign.pub <image>@<digest>`.
+- The build workflow (`.github/workflows/build.yml`) is PR-only and never
+  publishes or signs; other GitHub Actions maintenance workflows (Renovate,
+  cleanup) run on schedules.
 - Never commit `cosign.key`; only `cosign.pub` may be committed.
-- If signing is enabled later, treat it as a separate, explicit change and
-  update `finpilot-templates`, `finpilot-maintain`, and this skill together.
+- Attestations, SBOM, provenance and rechunking are separate concerns and stay
+  out of scope.
+- Keep `finpilot-templates`, `finpilot-maintain`, `finpilot-ci`, and this skill
+  in sync when the signing setup changes.
 
 ## Common Rationalizations
 
@@ -163,13 +173,13 @@ or releases as signed.
 | "I'll rename the obvious places and fix the rest later."       | Missing a rename location (Justfile, Jenkins env, `iso/*.toml`) causes silent failures months later. Do them all. |
 | "I don't need branch protection for a personal fork."          | Without it, Renovate auto-merge won't work, and dependency PRs sit unmerged.                              |
 | "I'll add the raptor section to README after I have packages." | Add the section immediately with placeholders. Update it iteratively.                                      |
-| "Signing is too much work for a first build."                  | Signing is intentionally out of scope here — nothing to configure. Keep docs accurate instead.             |
+| "Signing is too much work for a first build."                  | The Jenkins pipelines already sign; you only configure `cosign_key` and `cosign_pass`. Keep docs accurate. |
 | "The upstream promotion workflow handles releases."            | This repo publishes with Jenkins and has no `promote-main-to-stable.yml`.                                  |
 
 ## Red Flags
 
 - Fork repo still has the upstream template name in any identity location
-- Documentation claims images are signed while cosign signing is disabled
+- Documentation attributing signing to GitHub Actions or a tag instead of the Jenkins digest signature
 - `cosign.key` added to the repo
 - A documented release path references `projectbluefin/actions` or upstream
   workflows that do not exist here
@@ -185,4 +195,4 @@ or releases as signed.
 - [ ] Branch protection for `main` configured with checks that exist here?
 - [ ] First build succeeded and the image published to GHCR via Jenkins?
 - [ ] README contains the "What Makes this Raptor Different" section?
-- [ ] Signing state documented as disabled (no false "signed" claims)?
+- [ ] Signing state documented accurately (Jenkins Cosign by digest; `cosign_key`/`cosign_pass`; `cosign.pub` for verification)?

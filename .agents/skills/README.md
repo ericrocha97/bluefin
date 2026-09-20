@@ -10,8 +10,8 @@ it.
 The skills are adapted from
 [`projectbluefin/finpilot`](https://github.com/projectbluefin/finpilot) to match
 this repository: a COSMIC-only custom image based on **Bluefin DX**, built and
-published by **Jenkins** for the standard and NVIDIA variants, with **cosign
-signing disabled** in this scope.
+published by **Jenkins** for the standard and NVIDIA variants, with **Cosign
+signing by digest in Jenkins** and GitHub Actions limited to PR checks.
 
 ## Skill Index
 
@@ -20,7 +20,7 @@ signing disabled** in this scope.
 | [`finpilot-router`](finpilot-router/SKILL.md) | The task routing table: which skill covers what, and the standard sequence. Load when unsure. |
 | [`finpilot-overview`](finpilot-overview/SKILL.md) | Repository architecture and file layout. Start here for orientation. |
 | [`finpilot-onboarding`](finpilot-onboarding/SKILL.md) | Bootstrap a new fork: rename the identity, enable Actions, first green build, raptor section, branch protection. |
-| [`finpilot-templates`](finpilot-templates/SKILL.md) | Image identity ARGs, rename locations, `image-info.json`, and AGENTS.md update rules. Signing stays disabled. |
+| [`finpilot-templates`](finpilot-templates/SKILL.md) | Image identity ARGs, rename locations, `image-info.json`, and AGENTS.md update rules. Jenkins signs published digests with Cosign. |
 | [`finpilot-packages`](finpilot-packages/SKILL.md) | Decision tree: where to add packages (`dnf5`, Homebrew Brewfiles, Flatpak preinstall). |
 | [`finpilot-custom`](finpilot-custom/SKILL.md) | Runtime layer: Brewfiles, Flatpaks, ujust, `rtk`/`topgrade`, and validation. |
 | [`finpilot-build`](finpilot-build/SKILL.md) | `Containerfile`, `Justfile`, `build/*.sh`, `BASE_IMAGE`, lint, and advanced topics. |

@@ -3,7 +3,8 @@ name: finpilot-maintain
 description: >-
   Maintenance of an active bluefin-cosmic-dx fork: Renovate digest PRs, README
   raptor section updates, light validation loops, and maintenance schedules.
-  Signing stays out of scope. Use when maintaining the fork after onboarding.
+  Jenkins signs published digests with Cosign. Use when maintaining the fork
+  after onboarding.
 ---
 
 # bluefin-cosmic-dx Maintenance
@@ -29,7 +30,7 @@ description: >-
 2. **Update the README raptor section** whenever packages or configuration change
 3. **Run the light validation loop** before opening PRs (a full build is optional and CI/Jenkins owns it)
 4. **Open PRs to `main`** — never push directly
-5. **Keep the signing state accurate** — cosign stays out of scope
+5. **Keep the signing state accurate** — Jenkins signs published digests with Cosign
 
 ## Handle Renovate Digest PRs
 
@@ -95,18 +96,25 @@ just validate-brewfiles
 bash build/validate-brewfiles.sh custom/brew
 ```
 
-## Signing (Out of Scope)
+## Signing (Jenkins Cosign)
 
-Cosign signing is **not enabled by default** in this repository, and enabling it
-is out of scope for this work. Do not "verify signing" or document signed
-images as part of maintenance.
+Cosign signing (traditional key) is enabled in the **Jenkins** production
+pipelines, and keeping it working is part of maintenance. After `Push GHCR`,
+each pipeline captures the published digest and signs
+`IMAGE_REPOSITORY@sha256:<digest>` in a `Sign Image` stage gated on `main`,
+using the Jenkins credentials `cosign_key` (`Secret file`) and `cosign_pass`
+(`Secret text`) through `ci/jenkins/scripts/sign_image.sh`.
 
-- `build.yml` keeps signing steps for future reuse but runs on pull requests
-  only, so it never signs a published image.
-- Jenkins publishes unsigned images; no release gate requires a signature.
+- `build.yml` triggers on pull requests only, so it never publishes or signs.
+- `cosign.pub` is versioned; verify a digest with
+  `cosign verify --key cosign.pub <image>@<digest>`. If verification fails after
+  a key rotation, confirm the versioned public key matches the private key in
+  the `cosign_key` credential.
 - Never commit `cosign.key`; only `cosign.pub` may be committed.
-- If signing is enabled later, treat it as a separate, explicit change and
-  update `finpilot-templates`, `finpilot-onboarding`, and this skill together.
+- Attestations, SBOM, provenance and rechunking are separate concerns and stay
+  out of scope; do not conflate them with the Cosign signature.
+- Keep `finpilot-templates`, `finpilot-onboarding`, `finpilot-ci`, and this
+  skill in sync when the signing setup changes.
 
 ## Light Validation Loop
 
@@ -178,7 +186,7 @@ Renovate stops creating PRs, see the Renovate section of
 
 - Review the base image stream (`BASE_IMAGE`) and OCI context tags
 - Review documentation (`README.md`, `AGENTS.md`, skills) for accuracy
-- Confirm the signing state is still documented as disabled
+- Confirm the signing state is still documented accurately (Jenkins signs the published digest by digest)
 
 ## Common Rationalizations
 
@@ -188,7 +196,7 @@ Renovate stops creating PRs, see the Renovate section of
 | "I'll update the README later when I have more changes." | Update incrementally. Users rely on it for the current state. |
 | "Local builds are optional since CI builds everything." | CI and Jenkins own the image build here. Use the light checks instead of a heavy local build. |
 | "I'll push to main to save time." | PRs are cheap. Direct pushes bypass validation and branch protection. |
-| "Maintenance should verify signing works." | Signing is out of scope and disabled; verifying it would fail. Keep the docs accurate. |
+| "Maintenance should verify signing works." | Jenkins signs the published digest. Verify with `cosign verify --key cosign.pub <image>@<digest>`; if it fails after a key rotation, check `cosign.pub` against the `cosign_key` credential. |
 | "The upstream promotion workflow handles releases." | There is no promotion workflow. Jenkins builds from `main`. |
 
 ## Red Flags
@@ -196,7 +204,7 @@ Renovate stops creating PRs, see the Renovate section of
 - Renovate PRs sitting unmerged for weeks
 - README raptor section missing or severely outdated
 - Direct pushes to `main` bypassing branch protection
-- Documenting signed images while cosign signing is disabled
+- Documenting signing as a GitHub Actions step, by tag only, or conflating it with attestations/SBOM/provenance/rechunking
 - A required branch-protection check that does not exist in this repository
 - A Brewfile validated with `brew bundle check` instead of the safe validator
 - Widening Renovate automerge beyond `pin`/`pinDigest` and Containerfile digests
@@ -207,5 +215,5 @@ Renovate stops creating PRs, see the Renovate section of
 - [ ] Is the README raptor section updated for the latest changes?
 - [ ] Did the light validation loop pass (`just check`, `just lint`, `bash build/validate-brewfiles.sh custom/brew`, `bats tests/unit`, `git diff --check`)?
 - [ ] Are all pushes to `main` via PR with checks that exist here?
-- [ ] Is the signing state documented as disabled (no false "signed" claims)?
+- [ ] Is the signing state documented accurately (Jenkins Cosign by digest, `cosign.pub` for verification)?
 - [ ] Is Renovate running with a valid token and current config?

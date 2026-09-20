@@ -8,6 +8,46 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/assert.sh"
 
+# Assert that the first occurrence of $first appears before the first occurrence
+# of $second in $file. Used to pin stage ordering in the pipelines.
+assert_ordered_in_file() {
+    local file_path="$1"
+    local first="$2"
+    local second="$3"
+    local first_line second_line
+
+    first_line="$(grep -nF -- "$first" "$file_path" | head -n1 | cut -d: -f1)"
+    second_line="$(grep -nF -- "$second" "$file_path" | head -n1 | cut -d: -f1)"
+
+    if [[ -z "$first_line" || -z "$second_line" ]]; then
+        fail "Cannot verify ordering '$first' before '$second' in $file_path"
+    fi
+
+    if (( first_line >= second_line )); then
+        fail "Expected '$first' (line $first_line) before '$second' (line $second_line) in $file_path"
+    fi
+}
+
+# Assert that the body of a single `stage('NAME') { ... }` block contains a
+# literal string. The body is bounded by the next top-level `stage(` line.
+assert_stage_block_contains() {
+    local file_path="$1"
+    local stage_name="$2"
+    local expected_text="$3"
+    local target="stage('$stage_name')"
+    local block
+
+    block="$(awk -v target="$target" '
+        index($0, target) > 0 { capture = 1 }
+        capture { print }
+        capture && index($0, target) == 0 && $0 ~ /^        stage\(/ { exit }
+    ' "$file_path")"
+
+    if [[ "$block" != *"$expected_text"* ]]; then
+        fail "Expected '$expected_text' inside $target in $file_path"
+    fi
+}
+
 JENKINSFILE_STABLE="$REPO_ROOT/ci/jenkins/Jenkinsfile.stable"
 JENKINSFILE_NVIDIA="$REPO_ROOT/ci/jenkins/Jenkinsfile.nvidia"
 
@@ -40,6 +80,7 @@ for JENKINSFILE in "$JENKINSFILE_STABLE" "$JENKINSFILE_NVIDIA"; do
 
     assert_file_contains "$JENKINSFILE" "docker login \"\$IMAGE_REGISTRY\" -u \"\$GHCR_USERNAME\" --password-stdin"
     assert_file_contains "$JENKINSFILE" "docker build --pull -f Containerfile"
+    assert_file_contains "$JENKINSFILE" "ci/jenkins/scripts/generate_metadata.sh"
     assert_file_contains "$JENKINSFILE" "\"\${labels_args[@]}\""
     assert_file_contains "$JENKINSFILE" "-t \"\$IMAGE_REPOSITORY:\${short_date}\" ."
     assert_file_contains "$JENKINSFILE" "short_date=\"\${SHORT_DATE:-}\""
@@ -78,9 +119,75 @@ done
 assert_file_contains "$JENKINSFILE_STABLE" "cron('H 2 * * 0')"
 assert_file_contains "$JENKINSFILE_STABLE" "IMAGE_NAME = 'bluefin-cosmic-dx'"
 assert_file_contains "$JENKINSFILE_STABLE" "IMAGE_REPOSITORY = 'ghcr.io/ericrocha97/bluefin-cosmic-dx'"
+assert_stage_block_contains "$JENKINSFILE_STABLE" "Push GHCR" "artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml"
 assert_file_contains "$JENKINSFILE_STABLE" "echo \"v\${short_date}\" > ci/jenkins/build/release_tag"
 assert_file_contains "$JENKINSFILE_STABLE" "--build-arg RELEASE_TAG=\"v\${short_date}\""
 assert_file_not_contains "$JENKINSFILE_STABLE" "--build-arg BASE_IMAGE"
+
+# Standard variant: Cosign signing by digest, after Push GHCR and before the
+# release. It only runs on the default branch and binds the two credentials.
+assert_file_contains "$JENKINSFILE_STABLE" "stage('Sign Image')"
+assert_ordered_in_file "$JENKINSFILE_STABLE" "stage('Push GHCR')" "stage('Sign Image')"
+assert_ordered_in_file "$JENKINSFILE_STABLE" "stage('Sign Image')" "stage('Create GitHub Release')"
+assert_stage_block_contains "$JENKINSFILE_STABLE" "Sign Image" "expression { env.EFFECTIVE_BRANCH == env.DEFAULT_BRANCH }"
+assert_stage_block_contains "$JENKINSFILE_STABLE" "Sign Image" "credentialsId: 'cosign_key', variable: 'COSIGN_KEY_FILE'"
+assert_stage_block_contains "$JENKINSFILE_STABLE" "Sign Image" "credentialsId: 'cosign_pass', variable: 'COSIGN_PASSWORD'"
+assert_stage_block_contains "$JENKINSFILE_STABLE" "Sign Image" "bash ci/jenkins/scripts/sign_image.sh \"\${IMAGE_REPOSITORY}@\${digest}\""
+
+# The published digest is captured from the push output, validated, written for
+# the signing stage and never replaced by a bare tag.
+assert_stage_block_contains "$JENKINSFILE_STABLE" "Push GHCR" 'sha256:[0-9a-f]{64}'
+assert_file_contains "$JENKINSFILE_STABLE" "ci/jenkins/build/image_digest"
+assert_file_contains "$JENKINSFILE_STABLE" "if [[ ! \"\$digest\" =~ ^sha256:[0-9a-f]{64}\$ ]]; then"
+assert_file_not_contains "$JENKINSFILE_STABLE" "cosign sign \"\$IMAGE_REPOSITORY:"
+
+# Run the real `captured_digest=...` command from the Push GHCR stage against a
+# sample docker push log and return the digest it extracts. The command is read
+# from the given Jenkinsfile so the test exercises the pipeline logic instead of
+# a copy of it.
+run_push_digest_extraction() {
+    local jenkinsfile_path="$1"
+    local push_log_content="$2"
+    local command inner result tmp
+    tmp="$(mktemp -d)"
+
+    command="$(grep -F "captured_digest=\"\$(" "$jenkinsfile_path" | head -n1)"
+    if [[ -z "$command" ]]; then
+        rm -rf "$tmp"
+        fail "Cannot locate the digest extraction command in $jenkinsfile_path"
+    fi
+
+    mkdir -p "$tmp/ci/jenkins/build"
+    printf '%s\n' "$push_log_content" > "$tmp/ci/jenkins/build/push.log"
+
+    command="${command%"${command##*[![:space:]]}"}"
+    inner="${command#*captured_digest=\"\$(}"
+    inner="${inner%)\"}"
+
+    result="$(cd "$tmp" && eval "$inner")"
+    rm -rf "$tmp"
+    printf '%s' "$result"
+}
+
+# A push log can carry earlier sha256 tokens (layer/config digests) before the
+# final `digest:` line; the final manifest digest must win.
+push_log_sample='The push refers to repository [ghcr.io/ericrocha97/bluefin-cosmic-dx]
+layer-sha is sha256:1111111111111111111111111111111111111111111111111111111111111111
+config: digest: sha256:2222222222222222222222222222222222222222222222222222222222222222 size: 100
+latest: digest: sha256:3333333333333333333333333333333333333333333333333333333333333333 size: 1234'
+
+final_digest="sha256:3333333333333333333333333333333333333333333333333333333333333333"
+earlier_digest="sha256:1111111111111111111111111111111111111111111111111111111111111111"
+captured_digest="$(run_push_digest_extraction "$JENKINSFILE_STABLE" "$push_log_sample")"
+assert_equals "$final_digest" "$captured_digest" "Push GHCR must capture the final published digest"
+if [[ "$captured_digest" == "$earlier_digest" ]]; then
+    fail "Push GHCR captured an earlier sha256 token instead of the final digest"
+fi
+
+# Regression guard: the extraction must anchor on the final `digest:` line and
+# must not fall back to "first sha256 token anywhere".
+assert_stage_block_contains "$JENKINSFILE_STABLE" "Push GHCR" "digest: sha256:"
+assert_file_not_contains "$JENKINSFILE_STABLE" 'for (i = 1; i <= NF; i++)'
 
 # NVIDIA variant (bluefin-cosmic-dx-nvidia)
 assert_file_contains "$JENKINSFILE_NVIDIA" "cron('H 10 * * *')"
@@ -89,5 +196,41 @@ assert_file_contains "$JENKINSFILE_NVIDIA" "IMAGE_REPOSITORY = 'ghcr.io/ericroch
 assert_file_contains "$JENKINSFILE_NVIDIA" "echo \"v\${short_date}-nvidia\" > ci/jenkins/build/release_tag"
 assert_file_contains "$JENKINSFILE_NVIDIA" "--build-arg BASE_IMAGE=ghcr.io/ublue-os/bluefin-dx-nvidia-open:stable-daily"
 assert_file_contains "$JENKINSFILE_NVIDIA" "--build-arg RELEASE_TAG=\"v\${short_date}-nvidia\""
+
+# NVIDIA variant: Cosign signing by digest, after Push GHCR and before the
+# release. It only runs on the default branch and binds the two credentials,
+# mirroring the standard pipeline without touching the NVIDIA base image or the
+# existing release tag.
+assert_file_contains "$JENKINSFILE_NVIDIA" "stage('Sign Image')"
+assert_ordered_in_file "$JENKINSFILE_NVIDIA" "stage('Push GHCR')" "stage('Sign Image')"
+assert_ordered_in_file "$JENKINSFILE_NVIDIA" "stage('Sign Image')" "stage('Create GitHub Release')"
+assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Sign Image" "expression { env.EFFECTIVE_BRANCH == env.DEFAULT_BRANCH }"
+assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Sign Image" "credentialsId: 'cosign_key', variable: 'COSIGN_KEY_FILE'"
+assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Sign Image" "credentialsId: 'cosign_pass', variable: 'COSIGN_PASSWORD'"
+assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Sign Image" "bash ci/jenkins/scripts/sign_image.sh \"\${IMAGE_REPOSITORY}@\${digest}\""
+
+# The published digest is captured from the push output, validated, written for
+# the signing stage and never replaced by a bare tag.
+assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Push GHCR" 'sha256:[0-9a-f]{64}'
+assert_file_contains "$JENKINSFILE_NVIDIA" "ci/jenkins/build/image_digest"
+assert_file_contains "$JENKINSFILE_NVIDIA" "if [[ ! \"\$digest\" =~ ^sha256:[0-9a-f]{64}\$ ]]; then"
+assert_file_not_contains "$JENKINSFILE_NVIDIA" "cosign sign \"\$IMAGE_REPOSITORY:"
+assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Push GHCR" "digest: sha256:"
+assert_file_not_contains "$JENKINSFILE_NVIDIA" 'for (i = 1; i <= NF; i++)'
+
+# The same extraction logic must run against the NVIDIA pipeline. The final
+# manifest digest must win over earlier layer/config sha256 tokens.
+nvidia_push_log_sample='The push refers to repository [ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia]
+layer-sha is sha256:4444444444444444444444444444444444444444444444444444444444444444
+config: digest: sha256:5555555555555555555555555555555555555555555555555555555555555555 size: 100
+stable: digest: sha256:6666666666666666666666666666666666666666666666666666666666666666 size: 4321'
+
+nvidia_final_digest="sha256:6666666666666666666666666666666666666666666666666666666666666666"
+nvidia_earlier_digest="sha256:4444444444444444444444444444444444444444444444444444444444444444"
+nvidia_captured_digest="$(run_push_digest_extraction "$JENKINSFILE_NVIDIA" "$nvidia_push_log_sample")"
+assert_equals "$nvidia_final_digest" "$nvidia_captured_digest" "NVIDIA Push GHCR must capture the final published digest"
+if [[ "$nvidia_captured_digest" == "$nvidia_earlier_digest" ]]; then
+    fail "NVIDIA Push GHCR captured an earlier sha256 token instead of the final digest"
+fi
 
 printf 'PASS: test_jenkinsfile_structure.sh\n'

@@ -101,8 +101,10 @@ workflows.
   validation.
 - **Image metadata**: `build/00-image-info.sh` writes
   `/usr/share/ublue-os/image-info.json` and updates `/usr/lib/os-release`.
-- **Signing**: cosign signing is **disabled** in this scope. Do not claim local
-  builds or releases are signed.
+- **Signing**: Jenkins signs the published digest with a traditional Cosign key
+  (credentials `cosign_key` and `cosign_pass`); `cosign.pub` is versioned for
+  `cosign verify`. GitHub Actions never publishes or signs, and attestations,
+  SBOM, provenance and rechunking stay out of scope.
 
 ## Scope Rules
 
@@ -136,14 +138,14 @@ To keep changes minimal and safe:
 | ---------------------------------------------------- | ------------------------------------------------------------------- |
 | "AGENTS.md has everything — no need to use skills." | AGENTS.md holds global rules. Skills provide task-specific instructions. |
 | "It's just a custom image, not upstream infra."      | Jenkins publishes real images. Mistakes reach users.                |
-| "The finpilot docs describe this repo."             | Upstream assumes `projectbluefin/actions` and enabled signing. Verify local facts first. |
+| "The finpilot docs describe this repo."             | Upstream assumes `projectbluefin/actions` and keyless/OIDC signing. This repo uses Jenkins with a traditional Cosign key. Verify local facts first. |
 
 ## Red Flags
 
 - Making `Containerfile` changes without using `finpilot-build`
 - Adding a workflow that assumes `projectbluefin/actions` composite actions
 - Updating pinned `@sha256:...` digests in `Containerfile` manually instead of letting Renovate do it
-- Documenting images as signed while cosign signing is disabled
+- Documenting signing as a GitHub Actions step, by tag only, or conflating it with attestations/SBOM/provenance/rechunking
 
 ## Verification
 
