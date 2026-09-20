@@ -35,7 +35,7 @@
 ###############################################################################
 
 # Base image selection (global ARG — must be before any FROM)
-ARG BASE_IMAGE=ghcr.io/ublue-os/bluefin-dx:stable
+ARG BASE_IMAGE=ghcr.io/ublue-os/bluefin-dx:stable@sha256:5e5d036561a12f531ddcdb039cf09f66d8fd594f55a63920ca85045509dc4017
 
 # Context stage - combine local and imported OCI container resources
 FROM scratch AS ctx
@@ -44,8 +44,8 @@ COPY build /build
 COPY custom /custom
 # Copy from OCI containers to distinct subdirectories to avoid conflicts
 # Note: Renovate can automatically update these :latest tags to SHA-256 digests for reproducibility
-COPY --from=ghcr.io/projectbluefin/common:latest /system_files /oci/common
-COPY --from=ghcr.io/ublue-os/brew:latest /system_files /oci/brew
+COPY --from=ghcr.io/projectbluefin/common:latest@sha256:b7e3487cafe8b21e10bb514f218406548f4c1abef5e444963094cbf2ec60e4b1 /system_files /oci/common
+COPY --from=ghcr.io/ublue-os/brew:latest@sha256:e9a72571b7644b6277f0638b6a3c5e497e265e1098ab91224567acbdeb8b74ea /system_files /oci/brew
 
 # Base Image - Bluefin DX (GNOME is removed in 40-remove-gnome.sh, leaving only COSMIC)
 FROM ${BASE_IMAGE}
