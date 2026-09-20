@@ -14,8 +14,9 @@ Este guia mostra, do zero, como configurar o Jenkins para rodar os dois pipeline
 Os pipelines definidos em `ci/jenkins/Jenkinsfile.stable` e `ci/jenkins/Jenkinsfile.nvidia` executam este fluxo:
 
 - `Build Image`: build da imagem e geração de `manifest.txt` + metadados.
-- `Push GHCR`: autentica no GHCR, publica as tags e registra o digest publicado.
+- `Push GHCR`: autentica no GHCR, publica as tags datadas e registra o digest publicado.
 - `Sign Image`: assina o digest publicado com Cosign. Só roda quando `EFFECTIVE_BRANCH == DEFAULT_BRANCH` (`main`).
+- `Promote Stable`: atualiza a tag `stable` somente depois que a assinatura do digest foi concluída.
 - `Create GitHub Release`: cria/atualiza release e anexa `manifest.txt`.
 - `post { always }`: arquiva `ci/jenkins/build/*` e envia o payload para n8n usando `ci/jenkins/scripts/notify_n8n.sh`. Como o hook é `always`, a notificação acontece mesmo quando o pipeline falha; o status enviado é derivado de `currentBuild.currentResult` (`success`/`failure`).
 

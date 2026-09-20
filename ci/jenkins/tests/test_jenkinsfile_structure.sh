@@ -48,6 +48,24 @@ assert_stage_block_contains() {
     fi
 }
 
+assert_stage_block_not_contains() {
+    local file_path="$1"
+    local stage_name="$2"
+    local unexpected_text="$3"
+    local target="stage('$stage_name')"
+    local block
+
+    block="$(awk -v target="$target" '
+        index($0, target) > 0 { capture = 1 }
+        capture { print }
+        capture && index($0, target) == 0 && $0 ~ /^        stage\(/ { exit }
+    ' "$file_path")"
+
+    if [[ "$block" == *"$unexpected_text"* ]]; then
+        fail "Did not expect '$unexpected_text' inside $target in $file_path"
+    fi
+}
+
 JENKINSFILE_STABLE="$REPO_ROOT/ci/jenkins/Jenkinsfile.stable"
 JENKINSFILE_NVIDIA="$REPO_ROOT/ci/jenkins/Jenkinsfile.nvidia"
 
@@ -58,6 +76,7 @@ for JENKINSFILE in "$JENKINSFILE_STABLE" "$JENKINSFILE_NVIDIA"; do
     assert_file_contains "$JENKINSFILE" "stage('Build Image')"
     assert_file_contains "$JENKINSFILE" "stage('Push GHCR')"
     assert_file_contains "$JENKINSFILE" "stage('Create GitHub Release')"
+    assert_file_contains "$JENKINSFILE" "stage('Promote Stable')"
     assert_file_contains "$JENKINSFILE" "stage('Resolve Branch Context')"
 
     assert_file_contains "$JENKINSFILE" "post {"
@@ -88,6 +107,8 @@ for JENKINSFILE in "$JENKINSFILE_STABLE" "$JENKINSFILE_NVIDIA"; do
     assert_file_contains "$JENKINSFILE" "release_tag=\"\${RELEASE_TAG:-}\""
     assert_file_contains "$JENKINSFILE" "if [[ -z \"\$release_tag\" && -f ci/jenkins/build/release_tag ]]; then"
     assert_file_contains "$JENKINSFILE" "trap cleanup EXIT"
+    assert_file_contains "$JENKINSFILE" "[[ \"\$tag\" == \"stable\" ]] && continue"
+    assert_file_contains "$JENKINSFILE" "awk '{print \$2}' || true)"
     assert_file_contains "$JENKINSFILE" "def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: '')"
     assert_file_contains "$JENKINSFILE" "branch = branch.replaceFirst('^origin/', '').replaceFirst('^refs/heads/', '')"
     assert_file_contains "$JENKINSFILE" "if (!branch) {"
@@ -127,16 +148,22 @@ assert_file_not_contains "$JENKINSFILE_STABLE" "--build-arg BASE_IMAGE"
 # Standard variant: Cosign signing by digest, after Push GHCR and before the
 # release. It only runs on the default branch and binds the two credentials.
 assert_file_contains "$JENKINSFILE_STABLE" "stage('Sign Image')"
-assert_ordered_in_file "$JENKINSFILE_STABLE" "stage('Push GHCR')" "stage('Sign Image')"
-assert_ordered_in_file "$JENKINSFILE_STABLE" "stage('Sign Image')" "stage('Create GitHub Release')"
+    assert_ordered_in_file "$JENKINSFILE_STABLE" "stage('Push GHCR')" "stage('Sign Image')"
+    assert_ordered_in_file "$JENKINSFILE_STABLE" "stage('Sign Image')" "stage('Create GitHub Release')"
+    assert_ordered_in_file "$JENKINSFILE_STABLE" "stage('Sign Image')" "stage('Promote Stable')"
+    assert_ordered_in_file "$JENKINSFILE_STABLE" "stage('Promote Stable')" "stage('Create GitHub Release')"
 assert_stage_block_contains "$JENKINSFILE_STABLE" "Sign Image" "expression { env.EFFECTIVE_BRANCH == env.DEFAULT_BRANCH }"
 assert_stage_block_contains "$JENKINSFILE_STABLE" "Sign Image" "credentialsId: 'cosign_key', variable: 'COSIGN_KEY_FILE'"
-assert_stage_block_contains "$JENKINSFILE_STABLE" "Sign Image" "credentialsId: 'cosign_pass', variable: 'COSIGN_PASSWORD'"
-assert_stage_block_contains "$JENKINSFILE_STABLE" "Sign Image" "bash ci/jenkins/scripts/sign_image.sh \"\${IMAGE_REPOSITORY}@\${digest}\""
+    assert_stage_block_contains "$JENKINSFILE_STABLE" "Sign Image" "credentialsId: 'cosign_pass', variable: 'COSIGN_PASSWORD'"
+    assert_stage_block_contains "$JENKINSFILE_STABLE" "Sign Image" "credentialsId: 'ghcr-creds'"
+    assert_stage_block_contains "$JENKINSFILE_STABLE" "Sign Image" "docker login \"\$IMAGE_REGISTRY\" -u \"\$GHCR_USERNAME\" --password-stdin"
+    assert_stage_block_contains "$JENKINSFILE_STABLE" "Sign Image" "bash ci/jenkins/scripts/sign_image.sh \"\${IMAGE_REPOSITORY}@\${digest}\""
+    assert_stage_block_contains "$JENKINSFILE_STABLE" "Promote Stable" "docker push \"\$IMAGE_REPOSITORY:stable\""
 
 # The published digest is captured from the push output, validated, written for
 # the signing stage and never replaced by a bare tag.
 assert_stage_block_contains "$JENKINSFILE_STABLE" "Push GHCR" 'sha256:[0-9a-f]{64}'
+assert_stage_block_not_contains "$JENKINSFILE_STABLE" "Push GHCR" "docker push \"\$IMAGE_REPOSITORY:stable\""
 assert_file_contains "$JENKINSFILE_STABLE" "ci/jenkins/build/image_digest"
 assert_file_contains "$JENKINSFILE_STABLE" "if [[ ! \"\$digest\" =~ ^sha256:[0-9a-f]{64}\$ ]]; then"
 assert_file_not_contains "$JENKINSFILE_STABLE" "cosign sign \"\$IMAGE_REPOSITORY:"
@@ -201,17 +228,24 @@ assert_file_contains "$JENKINSFILE_NVIDIA" "--build-arg RELEASE_TAG=\"v\${short_
 # release. It only runs on the default branch and binds the two credentials,
 # mirroring the standard pipeline without touching the NVIDIA base image or the
 # existing release tag.
-assert_file_contains "$JENKINSFILE_NVIDIA" "stage('Sign Image')"
-assert_ordered_in_file "$JENKINSFILE_NVIDIA" "stage('Push GHCR')" "stage('Sign Image')"
-assert_ordered_in_file "$JENKINSFILE_NVIDIA" "stage('Sign Image')" "stage('Create GitHub Release')"
+    assert_file_contains "$JENKINSFILE_NVIDIA" "stage('Sign Image')"
+    assert_file_contains "$JENKINSFILE_NVIDIA" "stage('Promote Stable')"
+    assert_ordered_in_file "$JENKINSFILE_NVIDIA" "stage('Push GHCR')" "stage('Sign Image')"
+    assert_ordered_in_file "$JENKINSFILE_NVIDIA" "stage('Sign Image')" "stage('Create GitHub Release')"
+    assert_ordered_in_file "$JENKINSFILE_NVIDIA" "stage('Sign Image')" "stage('Promote Stable')"
+    assert_ordered_in_file "$JENKINSFILE_NVIDIA" "stage('Promote Stable')" "stage('Create GitHub Release')"
 assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Sign Image" "expression { env.EFFECTIVE_BRANCH == env.DEFAULT_BRANCH }"
 assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Sign Image" "credentialsId: 'cosign_key', variable: 'COSIGN_KEY_FILE'"
-assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Sign Image" "credentialsId: 'cosign_pass', variable: 'COSIGN_PASSWORD'"
-assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Sign Image" "bash ci/jenkins/scripts/sign_image.sh \"\${IMAGE_REPOSITORY}@\${digest}\""
+    assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Sign Image" "credentialsId: 'cosign_pass', variable: 'COSIGN_PASSWORD'"
+    assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Sign Image" "credentialsId: 'ghcr-creds'"
+    assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Sign Image" "docker login \"\$IMAGE_REGISTRY\" -u \"\$GHCR_USERNAME\" --password-stdin"
+    assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Sign Image" "bash ci/jenkins/scripts/sign_image.sh \"\${IMAGE_REPOSITORY}@\${digest}\""
+    assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Promote Stable" "docker push \"\$IMAGE_REPOSITORY:stable\""
 
 # The published digest is captured from the push output, validated, written for
 # the signing stage and never replaced by a bare tag.
 assert_stage_block_contains "$JENKINSFILE_NVIDIA" "Push GHCR" 'sha256:[0-9a-f]{64}'
+assert_stage_block_not_contains "$JENKINSFILE_NVIDIA" "Push GHCR" "docker push \"\$IMAGE_REPOSITORY:stable\""
 assert_file_contains "$JENKINSFILE_NVIDIA" "ci/jenkins/build/image_digest"
 assert_file_contains "$JENKINSFILE_NVIDIA" "if [[ ! \"\$digest\" =~ ^sha256:[0-9a-f]{64}\$ ]]; then"
 assert_file_not_contains "$JENKINSFILE_NVIDIA" "cosign sign \"\$IMAGE_REPOSITORY:"

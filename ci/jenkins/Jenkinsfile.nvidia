@@ -158,9 +158,10 @@ mapfile -t tags < "$TAGS_FILE"
 digest=""
 for tag in "${tags[@]}"; do
   [[ -n "$tag" ]] || continue
+  [[ "$tag" == "stable" ]] && continue
   docker tag "$IMAGE_REPOSITORY:${short_date}" "$IMAGE_REPOSITORY:${tag}"
   docker push "$IMAGE_REPOSITORY:${tag}" 2>&1 | tee ci/jenkins/build/push.log
-  captured_digest="$(grep -Eo 'digest: sha256:[0-9a-f]{64}' ci/jenkins/build/push.log | tail -n1 | awk '{print $2}')"
+  captured_digest="$(grep -Eo 'digest: sha256:[0-9a-f]{64}' ci/jenkins/build/push.log | tail -n1 | awk '{print $2}' || true)"
   if [[ -n "$captured_digest" ]]; then
     digest="$captured_digest"
   fi
@@ -188,11 +189,18 @@ echo "Published image digest: $digest"
             }
             steps {
                 withCredentials([
+                    usernamePassword(credentialsId: 'ghcr-creds', usernameVariable: 'GHCR_USERNAME', passwordVariable: 'GHCR_TOKEN'),
                     file(credentialsId: 'cosign_key', variable: 'COSIGN_KEY_FILE'),
                     string(credentialsId: 'cosign_pass', variable: 'COSIGN_PASSWORD')
                 ]) {
                     sh '''#!/usr/bin/env bash
 set -euo pipefail
+
+printf '%s' "$GHCR_TOKEN" | docker login "$IMAGE_REGISTRY" -u "$GHCR_USERNAME" --password-stdin
+cleanup() {
+  docker logout "$IMAGE_REGISTRY" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
 
 digest="$(<ci/jenkins/build/image_digest)"
 : "${digest:?image digest is required}"
@@ -203,6 +211,34 @@ if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
 fi
 
 bash ci/jenkins/scripts/sign_image.sh "${IMAGE_REPOSITORY}@${digest}"
+'''
+                }
+            }
+        }
+
+        stage('Promote Stable') {
+            when {
+                expression { env.EFFECTIVE_BRANCH == env.DEFAULT_BRANCH }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'ghcr-creds', usernameVariable: 'GHCR_USERNAME', passwordVariable: 'GHCR_TOKEN')]) {
+                    sh '''#!/usr/bin/env bash
+set -euo pipefail
+
+printf '%s' "$GHCR_TOKEN" | docker login "$IMAGE_REGISTRY" -u "$GHCR_USERNAME" --password-stdin
+cleanup() {
+  docker logout "$IMAGE_REGISTRY" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+short_date="${SHORT_DATE:-}"
+if [[ -z "$short_date" && -f ci/jenkins/build/short_date ]]; then
+  short_date="$(<ci/jenkins/build/short_date)"
+fi
+: "${short_date:?short_date is required}"
+
+docker tag "$IMAGE_REPOSITORY:${short_date}" "$IMAGE_REPOSITORY:stable"
+docker push "$IMAGE_REPOSITORY:stable"
 '''
                 }
             }
