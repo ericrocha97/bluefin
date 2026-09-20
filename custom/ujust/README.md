@@ -18,12 +18,14 @@ Create `.just` files in this directory with your custom commands:
 
 ```
 custom/ujust/
-├── README.md               # This file
-└── custom-dev-managers.just # Dev manager installers (NVM, SDKMAN)
+├── README.md                 # This file
+├── custom-apps.just          # Runtime app installers (Homebrew shortcuts)
+└── custom-dev-managers.just  # Dev manager installers (NVM, SDKMAN)
 ```
 
 **Example Files in this directory:**
 
+- [`custom-apps.just`](custom-apps.just) - `install-default-apps` (installs the tools in `custom/brew/default.Brewfile`)
 - [`custom-dev-managers.just`](custom-dev-managers.just) - NVM and SDKMAN installers
 
 ## Example Commands
@@ -111,6 +113,25 @@ interactive-command:
 ## Common Use Cases
 
 ### 1. Installing Software via Brewfiles
+
+The image ships [`custom-apps.just`](custom-apps.just), which exposes `install-default-apps` for the tools in `custom/brew/default.Brewfile` (`rtk` and `topgrade`):
+
+```just
+# custom/ujust/custom-apps.just
+[group('Apps')]
+install-default-apps:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    brew bundle --file /usr/share/ublue-os/homebrew/default.Brewfile
+```
+
+Users run it with:
+
+```bash
+ujust install-default-apps
+```
+
+Follow the same pattern for other Brewfiles:
 
 ```just
 [group('Apps')]
@@ -201,6 +222,7 @@ just --justfile custom/ujust/custom-dev-managers.just install-something
 
 **Start by editing your custom files:**
 
+- **[`custom-apps.just`](custom-apps.just)** - `install-default-apps` Homebrew shortcut
 - **[`custom-dev-managers.just`](custom-dev-managers.just)** - NVM and SDKMAN installers
 
 **Create new files** for different categories:
@@ -233,6 +255,7 @@ setup-dev:
 
 The included files provide starting examples:
 
+- **[`custom-apps.just`](custom-apps.just)** - `install-default-apps` Homebrew shortcut
 - **[`custom-dev-managers.just`](custom-dev-managers.just)** - NVM and SDKMAN installers
 
 These files show how to:

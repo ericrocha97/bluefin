@@ -14,12 +14,19 @@
 **Execute before EVERY commit:**
 
 1. **Conventional Commits** - ALL commits MUST follow conventional commit format (see below)
-2. **Shellcheck** - `shellcheck *.sh` on all modified shell files
+2. **Shellcheck** - `shellcheck *.sh` (or `just lint`) on all modified shell files
 3. **YAML validation** - `python3 -c "import yaml; yaml.safe_load(open('file.yml'))"` on all modified YAML
-4. **Justfile syntax** - `just --list` to verify
-5. **Confirm with user** - Always confirm before committing and pushing
+4. **Justfile syntax** - `just check`
+5. **Unit tests** - `bats tests/unit/` (or `just test-unit`) when `build/`, `custom/`, `tests/` or the `Justfile` change
+6. **Whitespace** - `git diff --check`
+7. **Confirm with user** - Always confirm before committing and pushing
 
 **Never commit files with syntax errors.**
+
+**A full container image build is NOT part of the local pre-commit gate.** The
+image build and `bootc container lint --fatal-warnings` run in Jenkins; GitHub
+Actions runs the PR checks. Run the light checks above and leave the heavy build
+to CI. See "Light validation" below.
 
 ### REQUIRED: Conventional Commit Format
 
@@ -29,22 +36,68 @@
 <type>[optional scope]: <description>
 ```
 
+## Agent Skills (`.agents/skills`)
+
+This repository ships discoverable Agent Skills under `.agents/skills/`. Each
+skill lives in a lowercase directory with a `SKILL.md` whose `name` frontmatter
+matches the directory.
+
+- Start at `.agents/skills/README.md` for the skill index.
+- Use `.agents/skills/finpilot-router/SKILL.md` as the single canonical
+  "I need to… → which skill?" routing table. Do not duplicate that table here.
+- `finpilot-build` covers `Containerfile`/`Justfile`/`build/*.sh`;
+  `finpilot-ci` covers Jenkins, GitHub Actions and Renovate;
+  `finpilot-custom` covers Brewfiles, Flatpaks and ujust;
+  `finpilot-packages` is the package decision tree; `finpilot-pr-checklist`
+  holds the light validation gate.
+- When adding, renaming or removing a skill, update `.agents/skills/README.md`
+  and the router table together.
+
+## CI Surfaces, Base Image and Release
+
+- **GitHub Actions = PR and light validation only.** The workflows under
+  `.github/workflows/` (`build.yml` image build as a PR check, `unit-tests.yml`,
+  `validate-*.yml`, `renovate.yml`, `clean.yml`) never publish images.
+- **Jenkins = production build and publication.** `ci/jenkins/Jenkinsfile.stable`
+  (standard) and `ci/jenkins/Jenkinsfile.nvidia` (NVIDIA) build with Docker,
+  push to GHCR, create GitHub releases and notify n8n. Both are gated on
+  `main`; full setup is in `docs/jenkins/README.md`.
+- **Base image = Bluefin DX via `ARG BASE_IMAGE`.** `Containerfile` defaults to
+  `ghcr.io/ublue-os/bluefin-dx:stable`. The NVIDIA variant is the *same*
+  Containerfile built with
+  `--build-arg BASE_IMAGE=ghcr.io/ublue-os/bluefin-dx-nvidia-open:stable-daily`;
+  there is no separate NVIDIA activation script.
+- **Renovate** runs from `.github/workflows/renovate.yml` every 6 hours using
+  the built-in `secrets.GITHUB_TOKEN` (there is no `RENOVATE_TOKEN`).
+- **Cosign signing is out of scope.** Images published by Jenkins are unsigned;
+  `build.yml` keeps signing steps only for possible future reuse and triggers on
+  pull requests only, so it never publishes. Never document images or releases
+  as signed.
+- **Light validation, no required local build.** Run `shellcheck`/`just lint`,
+  `just check`, `bats tests/unit`, YAML parsing, the Jenkins shell tests and
+  `git diff --check` locally. The image build and
+  `bootc container lint --fatal-warnings` are CI/Jenkins responsibilities.
+
 ## CRITICAL: Template Initialization
 
 **When this repository is used as a template, you MUST:**
 
 ### 1. Rename ALL instances of `bluefin-cosmic-dx`
 
-**Source of truth**: `Containerfile` line 9: `# Name: bluefin-cosmic-dx`
+**Source of truth**: the `# Name:` comment and the `IMAGE_NAME`/`IMAGE_VENDOR`
+ARGs in `Containerfile`. Use semantic references, not line numbers.
 
 **Files to update:**
 
-- `Containerfile` (line 9)
-- `Justfile` (line 1)
-- `README.md` (line 1)
-- `artifacthub-repo.yml` (line 5)
-- `custom/ujust/README.md` (~line 175)
-- `.github/workflows/ghcr-pruner.yml` (line 22)
+- `Containerfile` (the `# Name:` comment and the identity ARGs)
+- `Justfile` (`image_name` and `image_name_nvidia`)
+- `README.md` (title, GHCR badges and bootc switch examples)
+- `README.pt-BR.md` (same fields in Portuguese)
+- `artifacthub-repo.yml` (`repositoryID` and owner fields)
+- `custom/ujust/README.md` (bootc switch example)
+- `.github/workflows/clean.yml` (`packages:`)
+- `iso/iso.toml` and `iso/iso-nvidia.toml` (bootc switch URLs)
+- `AGENTS.md` (identity references)
 
 ### 2. Create "What's Different" section in README
 
@@ -84,9 +137,12 @@ Here are the changes from [Base Image Name]. This image is based on [Bluefin/Baz
 
 Confirm `.github/copilot-instructions.md` exists in the new repository. This file should be automatically copied when using this as a GitHub template.
 
-### 4. Explain signing is optional
+### 4. Confirm the signing state
 
-Signing is DISABLED by default. First builds succeed immediately. Enable later for production (see README).
+Cosign signing is **out of scope** for this repository. Do not claim images are
+signed and do not add signing steps. `build.yml` keeps signing steps only for
+possible future reuse, and it triggers on pull requests only, so it never
+publishes. Jenkins publishes unsigned images.
 
 **These 4 steps are REQUIRED for every new template instance.**
 
@@ -95,42 +151,45 @@ Signing is DISABLED by default. First builds succeed immediately. Enable later f
 ## Repository Structure
 
 ```
-├── Containerfile          # Main build definition (multi-stage build with OCI imports)
-├── Justfile              # Local build automation (image name, build commands)
-├── build/                # Build-time scripts (10-build.sh, 20-chrome.sh, etc.)
-│   ├── 10-build.sh      # Main build script (copy custom files, install packages)
-│   ├── 20-*.sh.example  # Example third-party repos (rename to use)
-│   ├── 30-*.sh.example  # Example desktop replacement (rename to use)
-│   ├── copr-helpers.sh  # Helper functions for COPR repositories
-│   └── README.md        # Build scripts documentation
-├── custom/               # User customizations (NOT in container, installed at runtime/first boot)
-│   ├── brew/            # Homebrew Brewfiles (CLI tools, dev tools)
-│   │   ├── default.Brewfile      # General CLI tools
-│   │   ├── development.Brewfile  # Dev environments
-│   │   ├── fonts.Brewfile        # Font packages
-│   │   └── README.md             # Homebrew documentation
-│   ├── flatpaks/        # Flatpak preinstall (GUI apps, post-first-boot)
-│   │   ├── default.preinstall    # Default GUI apps (INI format)
-│   │   └── README.md             # Flatpak documentation
-│   └── ujust/           # User commands (shortcuts to Brewfiles, system tasks)
-│       ├── custom-apps.just      # App installation shortcuts
-│       ├── custom-system.just    # System maintenance commands
-│       └── README.md             # ujust documentation
+├── Containerfile          # Multi-stage build; ARG BASE_IMAGE selects the base
+├── Justfile              # Local build/VM recipes (image name, build commands)
+├── build/                # Build-time scripts, numbered and auto-run in order
+│   ├── 00-image-info.sh # Writes image-info.json / os-release identity
+│   ├── 10-build.sh      # Main script; runs numbered [1-9][0-9]*-*.sh scripts
+│   ├── 15-system-optimizations.sh
+│   ├── 20-third-party-repos.sh
+│   ├── 30-cosmic-desktop.sh
+│   ├── 40-remove-gnome.sh
+│   ├── 99-versions.sh
+│   ├── clean-stage.sh   # Pre-lint cleanup
+│   ├── copr-helpers.sh  # COPR isolation helpers
+│   └── validate-*.sh    # Brewfile/Flatpak validators
+├── custom/               # Runtime layer (installed at runtime/first boot)
+│   ├── brew/            # Homebrew Brewfiles
+│   ├── flatpaks/        # Flatpak preinstall (INI format)
+│   ├── system-files/    # System configs copied in at build time
+│   └── ujust/           # User commands (Brewfile/Flatpak shortcuts)
 ├── iso/                  # Local testing only (no CI/CD)
 │   ├── disk.toml        # VM/disk image config (QCOW2/RAW)
-│   ├── iso.toml         # ISO installer config (bootc switch URL)
+│   ├── iso.toml         # Standard ISO installer config (bootc switch URL)
+│   ├── iso-nvidia.toml  # NVIDIA ISO installer config
 │   └── rclone/          # Upload configs (Cloudflare R2, AWS S3, etc.)
-├── .github/              # GitHub configuration and CI/CD
-│   ├── workflows/       # GitHub Actions workflows
+├── ci/jenkins/           # Production pipelines (stable + nvidia) and tests
+├── tests/unit/           # BATS unit tests (static; no image build)
+├── docs/                 # Docs, including docs/jenkins/README.md and plans
+├── .agents/skills/       # Agent Skills (see "Agent Skills" above)
+├── .github/              # GitHub configuration and CI
+│   ├── workflows/       # GitHub Actions PR checks and Renovate
 │   │   ├── build.yml               # PR check only (no publish)
+│   │   ├── unit-tests.yml          # BATS unit tests
 │   │   ├── clean.yml               # Deletes images >90 days old
 │   │   ├── renovate.yml            # Renovate bot updates (6h interval)
-│   │   ├── validate-*.yml          # Pre-merge validation checks
-│   │   └── ...
-│   ├── copilot-instructions.md  # THIS FILE - Instructions for Copilot
+│   │   └── validate-*.yml          # Pre-merge validation checks
+│   ├── copilot-instructions.md  # Pointer to AGENTS.md
 │   ├── SETUP_CHECKLIST.md       # Quick setup checklist for users
 │   ├── commit-convention.md     # Conventional commits guide
 │   └── renovate.json5           # Renovate configuration
+├── .dockerignore          # Keeps the build context minimal
 ├── .pre-commit-config.yaml   # Pre-commit hooks (optional local use)
 └── .gitignore                # Prevents committing secrets (cosign.key, etc.)
 ```
@@ -141,7 +200,7 @@ Signing is DISABLED by default. First builds succeed immediately. Enable later f
 
 ### Multi-Stage Build Architecture
 
-This template follows the **Bluefin architecture pattern** from @projectbluefin/distroless:
+This image follows the **Bluefin architecture pattern** from @projectbluefin/distroless:
 
 **Architecture Layers:**
 
@@ -149,26 +208,29 @@ This template follows the **Bluefin architecture pattern** from @projectbluefin/
    - Local build scripts (`/build`)
    - Local custom files (`/custom`)
    - **@projectbluefin/common** - Desktop configuration shared with Aurora (`/oci/common`)
-   - **@projectbluefin/branding** - Branding assets (`/oci/branding`)
-   - **@ublue-os/artwork** - Artwork shared with Aurora and Bazzite (`/oci/artwork`)
    - **@ublue-os/brew** - Homebrew integration (`/oci/brew`)
 
-2. **Base Image Options:**
-   - `ghcr.io/ublue-os/silverblue-main:42` (Fedora-based, default)
-   - `quay.io/centos-bootc/centos-bootc:stream10` (CentOS-based)
+2. **Base Image - Bluefin DX selected by `ARG BASE_IMAGE`:**
+   - Standard: `ghcr.io/ublue-os/bluefin-dx:stable` (default, set by the global ARG)
+   - NVIDIA: `ghcr.io/ublue-os/bluefin-dx-nvidia-open:stable-daily` (same Containerfile, `--build-arg BASE_IMAGE=...`)
+
+   The `Containerfile` also lists disabled alternative FROM lines (for example
+   `ghcr.io/ublue-os/base-main:latest` and
+   `quay.io/centos-bootc/centos-bootc:stream10`); they are comments, not the
+   built image. Do not document them as the default.
 
 **OCI Container Resources:**
 
 - Resources from OCI containers are copied to **distinct subdirectories** (`/oci/*`) to avoid file conflicts
-- Renovate automatically updates `:latest` tags to **SHA digests** for reproducibility
+- Renovate can update the `:latest` tags in the `ctx` stage to **SHA digests** for reproducibility
 - All OCI resources are mounted at build-time via the `ctx` stage
 
 **Reference:** See [Bluefin Contributing Guide](https://docs.projectbluefin.io/contributing/) for architecture diagram
 
 ### Build-time vs Runtime
 
-- **Build-time** (`build/`): Baked into container. Use `dnf5 install`. Services, configs, system packages.
-- **Runtime** (`custom/`): User installs after deployment. Use Brewfiles, Flatpaks. CLI tools, GUI apps, dev environments.
+- **Build-time** (`build/`): Baked into container. Use `dnf5 install`. Services, configs, system packages. `custom/system-files/` is also copied into the image here.
+- **Runtime** (`custom/brew/`, `custom/flatpaks/`, `custom/ujust/`): User installs after deployment. Use Brewfiles, Flatpaks. CLI tools, GUI apps, dev environments.
 
 ### Bluefin Convention Compliance
 
@@ -177,27 +239,48 @@ This template follows the **Bluefin architecture pattern** from @projectbluefin/
 - Use `dnf5` exclusively (never `dnf`, `yum`, `rpm-ostree`)
 - Always `-y` flag for non-interactive
 - COPRs: enable → install → **DISABLE** (critical, prevents repo persistence)
-- Use `copr_install_isolated` function pattern
-- Numbered scripts: `10-build.sh`, `20-chrome.sh`, `30-cosmic.sh`
+- Use `copr_install_isolated` from `build/copr-helpers.sh` (sourced as `/ctx/build/copr-helpers.sh`)
+- Numbered scripts auto-run: `10-build.sh` executes `/ctx/build/[1-9][0-9]*-*.sh` in order (for example `15-system-optimizations.sh`, `20-third-party-repos.sh`, `30-cosmic-desktop.sh`, `40-remove-gnome.sh`). No rename or Containerfile edit is needed to activate one.
 - Check @bootc-dev for container best practices
 
 ### Branch Strategy
 
-- **main** = Production releases ONLY. Never push directly. Builds `:stable` images.
+- **main** = Production releases ONLY. Never push directly. Jenkins builds and publishes `:stable` images from it.
 - **Conventional Commits** = REQUIRED. `feat:`, `fix:`, `chore:`, etc.
-- **Workflows** = Validation happens on PRs; official image build/publish is handled by Jenkins pipelines (`ci/jenkins/Jenkinsfile.stable` and `ci/jenkins/Jenkinsfile.nvidia`).
+- **Workflows** = GitHub Actions performs PR checks and light validation only; the official image build/publish is handled by Jenkins pipelines (`ci/jenkins/Jenkinsfile.stable` and `ci/jenkins/Jenkinsfile.nvidia`).
 
 ### Validation Workflows
 
 The repository includes automated validation on pull requests:
 
+- **build.yml** - Builds the image as a PR check (does not publish)
+- **unit-tests.yml** - Runs the BATS suite in `tests/unit/`
 - **validate-shellcheck.yml** - Runs shellcheck on all `build/*.sh` scripts
 - **validate-brewfiles.yml** - Validates Homebrew Brewfile syntax
 - **validate-flatpaks.yml** - Checks Flatpak app IDs exist on Flathub
 - **validate-justfiles.yml** - Validates just file syntax
 - **validate-renovate.yml** - Validates Renovate configuration
+- **validate-jenkins-tests.yml** - Runs the Jenkins shell tests in `ci/jenkins/tests/`
 
 **When adding files**: These validations run automatically on PRs. Fix any errors before merge.
+
+### Light validation (no local build required)
+
+Run the light checks locally; leave the full image build and
+`bootc container lint --fatal-warnings` to GitHub Actions/Jenkins:
+
+```bash
+just check                                        # Justfile and *.just syntax
+just lint                                         # shellcheck across *.sh
+bats tests/unit/                                  # static BATS unit tests
+bash build/validate-brewfiles.sh custom/brew      # Brewfile safety
+bash ci/jenkins/tests/run-all.sh                  # Jenkins shell tests
+git diff --check                                  # whitespace
+```
+
+The BATS suite reads files only (for example
+`tests/unit/containerfile-hardening_test.bats`) and never starts a build. A
+full `just build` / `just build-nvidia` is optional locally.
 
 ---
 
@@ -207,14 +290,15 @@ This section provides clear guidance on where to add different types of packages
 
 ### System Packages (dnf5 - Build-time)
 
-**Location**: `build/10-build.sh`
+**Location**: `build/10-build.sh` (base packages) or a numbered `build/NN-*.sh` script
 
-System packages are installed at build-time and baked into the container image. Use `dnf5` exclusively.
+System packages are installed at build-time and baked into the container image.
+Use `dnf5` exclusively.
 
 **Example**:
 
 ```bash
-# In build/10-build.sh
+# In build/10-build.sh, or a numbered build/NN-*.sh script
 dnf5 install -y vim git htop neovim tmux
 ```
 
@@ -229,15 +313,14 @@ dnf5 install -y vim git htop neovim tmux
 
 - Always use `dnf5` (never `dnf`, `yum`, or `rpm-ostree`)
 - Always add `-y` flag for non-interactive installs
-- For COPR repositories, use `copr_install_isolated` pattern and disable after use
-- For third-party repos, see example scripts: `build/20-onepassword.sh.example`
+- For COPR repositories, use `copr_install_isolated` and disable after use
+- For third-party repos, see the live example `build/20-third-party-repos.sh`
 
 **Script Naming Convention**:
 
 - `10-build.sh` - Main build script (always runs first)
-- `20-*.sh` - Additional scripts (run in numerical order)
-- `30-*.sh` - Desktop environment changes
-- `.example` suffix - Rename to `.sh` to activate
+- `NN-*.sh` (e.g. `15-`, `20-`, `30-`, `40-`) - Additional scripts, auto-run in numerical order by `10-build.sh` when they match `/ctx/build/[1-9][0-9]*-*.sh`
+- There is **no `.example` activation step** in this repository: create a numbered script and it runs. To disable one, rename it so it no longer matches `/ctx/build/[1-9][0-9]*-*.sh` (for example `20-script.sh.disabled`) or remove the file; removing execute permission does **not** disable it, because `10-build.sh` invokes every matching file with `bash` regardless of its mode (see `build/README.md`).
 
 ### Homebrew Packages (Brew - Runtime)
 
@@ -247,10 +330,8 @@ Homebrew packages are installed by users after deployment. Best for CLI tools an
 
 **Files**:
 
-- `custom/brew/default.Brewfile` - General purpose CLI tools
-- `custom/brew/development.Brewfile` - Development tools and environments
-- `custom/brew/fonts.Brewfile` - Font packages
-- Create custom `*.Brewfile` as needed
+- `custom/brew/default.Brewfile` - General purpose CLI tools (the only Brewfile committed today)
+- Create additional `*.Brewfile` files as needed, then wire them to a `ujust` shortcut
 
 **Example**:
 
@@ -283,8 +364,8 @@ Flatpak applications are GUI apps installed after first boot. Use INI format.
 
 **Files**:
 
-- `custom/flatpaks/default.preinstall` - Default GUI applications
-- Create custom `*.preinstall` files as needed
+- `custom/flatpaks/default.preinstall` - Default GUI applications (the only preinstall file today)
+- Create additional `*.preinstall` files as needed
 
 **Example**:
 
@@ -325,15 +406,16 @@ Branch=stable
 | Add package (runtime) | `brew "pkg"` | `custom/brew/default.Brewfile` |
 | Add GUI app | `[Flatpak Preinstall org.app.id]` | `custom/flatpaks/default.preinstall` |
 | Add user command | Create shortcut (NO dnf5) | `custom/ujust/*.just` |
-| Add third-party repo | Use example scripts | `build/20-*.sh.example` (rename) |
-| Replace desktop | Use example script | `build/30-cosmic-desktop.sh.example` |
-| Switch base image | Update FROM line | `Containerfile` line 38 |
-| Add OCI containers | Uncomment COPY --from= lines | `Containerfile` lines 13-18 (ctx stage) |
-| Test locally | `just build && just build-qcow2 && just run-vm-qcow2` | Terminal |
-| Deploy (production) | `sudo bootc switch ghcr.io/user/repo:stable` | Terminal |
+| Add third-party repo | Follow the live example | `build/20-third-party-repos.sh` |
+| Replace desktop | Numbered build script | `build/30-cosmic-desktop.sh`, `build/40-remove-gnome.sh` |
+| Switch base image | Change `ARG BASE_IMAGE` (or pass `--build-arg`) | `Containerfile` |
+| Add OCI containers | Add `COPY --from=` lines | `Containerfile` `ctx` stage |
+| Test locally (light) | `just check && just lint && bats tests/unit/` | Terminal |
+| Test locally (full, optional) | `just build && just build-qcow2 && just run-vm-qcow2` | Terminal |
+| Deploy (production) | `sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable` | Terminal |
 | Enable service | `systemctl enable service.name` | `build/10-build.sh` |
 | Add COPR | enable → install → **DISABLE** | `build/10-build.sh` |
-| Validate changes | Automatic on PR | `.github/workflows/validate-*.yml` |
+| Validate changes | Local light checks + PR workflows | `.github/workflows/validate-*.yml` |
 
 ---
 
@@ -343,101 +425,83 @@ Branch=stable
 
 **File**: `Containerfile`
 
-This template uses a **multi-stage build** following the @projectbluefin/distroless pattern.
+This image uses a **multi-stage build** following the @projectbluefin/distroless pattern.
 
-**Stage 1: Context (ctx) - Line 39**
-Combines resources from multiple OCI containers:
+**Stage 1: Context (ctx)**
+Combines local resources and the imported OCI containers actually used here:
 
 ```dockerfile
+ARG BASE_IMAGE=ghcr.io/ublue-os/bluefin-dx:stable
+
 FROM scratch AS ctx
 
 COPY build /build
 COPY custom /custom
-# Import from OCI containers - Renovate updates :latest to SHA-256 digests
-COPY --from=ghcr.io/ublue-os/base-main:latest /system_files /oci/base
+# Import from OCI containers - Renovate can update :latest to SHA-256 digests
 COPY --from=ghcr.io/projectbluefin/common:latest /system_files /oci/common
-COPY --from=ghcr.io/projectbluefin/branding:latest /system_files /oci/branding
-COPY --from=ghcr.io/ublue-os/artwork:latest /system_files /oci/artwork
 COPY --from=ghcr.io/ublue-os/brew:latest /system_files /oci/brew
 ```
 
-**Stage 2: Base Image - Line 52**
+**Stage 2: Base Image**
 
 ```dockerfile
-FROM ghcr.io/ublue-os/silverblue-main:latest  # Default (Fedora-based)
-# OR
-FROM quay.io/centos-bootc/centos-bootc:stream10  # CentOS-based
+FROM ${BASE_IMAGE}
 ```
 
-**Common alternative base images**:
+**Variants** (the same Containerfile, different `BASE_IMAGE` value):
 
 ```dockerfile
-FROM ghcr.io/ublue-os/bluefin:stable      # Dev, GNOME, `:stable` or `:gts`
-FROM ghcr.io/ublue-os/bazzite:stable      # Gaming, Steam Deck
-FROM ghcr.io/ublue-os/aurora:stable       # KDE Plasma
-FROM quay.io/fedora/fedora-bootc:42       # Upstream Fedora
+ghcr.io/ublue-os/bluefin-dx:stable                  # Standard (default)
+ghcr.io/ublue-os/bluefin-dx-nvidia-open:stable-daily # NVIDIA (`just build-nvidia`)
 ```
 
-**Tags**: `:stable` (recommended), `:latest` (bleeding edge), `-nvidia` variants available
+The `Containerfile` contains commented alternative `FROM` lines (for example
+`ghcr.io/ublue-os/base-main:latest`,
+`quay.io/centos-bootc/centos-bootc:stream10`). They are examples, not the built
+defaults.
 
-**Renovate**: Base image SHA and OCI container tags are auto-updated by Renovate bot every 6 hours (see `.github/renovate.json5`)
+**Renovate**: the `Containerfile`/`Justfile` images are tracked by Renovate every 6 hours using `secrets.GITHUB_TOKEN` (see `.github/renovate.json5` and `.github/workflows/renovate.yml`).
 
 **OCI Container Resources:**
 
-- **@ublue-os/base-main** - Base system configuration
 - **@projectbluefin/common** - Desktop configuration shared with Aurora
-- **@projectbluefin/branding** - Branding assets
-- **@ublue-os/artwork** - Artwork shared with Aurora and Bazzite
 - **@ublue-os/brew** - Homebrew integration
 
 **File Locations in Build Scripts:**
 
 - Local build scripts: `/ctx/build/`
 - Local custom files: `/ctx/custom/`
-- Base files: `/ctx/oci/base/`
 - Common files: `/ctx/oci/common/`
-- Branding files: `/ctx/oci/branding/`
-- Artwork files: `/ctx/oci/artwork/`
 - Brew files: `/ctx/oci/brew/`
 
 ### 2. OCI Containers for Additional System Files
 
-**File**: `Containerfile` (ctx stage, lines 6-18)
+**File**: `Containerfile` (ctx stage)
 
-Following the `@projectbluefin/distroless` pattern, you can layer in additional system files from OCI containers. These are commented out by default in the template.
-
-**Available OCI Containers**:
-
-```dockerfile
-# Artwork and Branding from projectbluefin/common
-COPY --from=ghcr.io/projectbluefin/common:latest /system_files/bluefin /files/bluefin
-COPY --from=ghcr.io/projectbluefin/common:latest /system_files/shared /files/shared
-
-# Homebrew system files from ublue-os/brew
-COPY --from=ghcr.io/ublue-os/brew:latest /system_files /files/brew
-```
+The `ctx` stage already imports `@projectbluefin/common` and `@ublue-os/brew`.
+To layer in additional system files from OCI containers, add more
+`COPY --from=` lines to the `ctx` stage and copy the files into place from a
+build script.
 
 **What's included**:
 
-- `projectbluefin/common:latest` - Bluefin wallpapers, themes, branding assets, ujust completions, udev rules
+- `projectbluefin/common:latest` - Desktop configuration shared with Aurora
 - `ublue-os/brew:latest` - Homebrew system integration files
 
 **When to use**:
 
-- You want Bluefin-specific artwork and wallpapers in your custom image
 - You want additional system integration beyond what the base image provides
 - You're building a Bluefin derivative and want to maintain brand consistency
 
 **Important**:
 
-- These are **commented out by default** as template examples
-- Uncomment only if you specifically want these additional system files
-- The files are copied into the `ctx` stage and made available to your build scripts
-- To use the files in your build, you'll need to copy them from `/ctx/files/*` to appropriate system locations in your build scripts
+- Any new OCI source must exist and be reachable at build time; do not invent tags
+- The files are mounted into the build scripts under `/ctx/oci/*`
+- To use them, copy from `/ctx/oci/*` to the appropriate system location in a build script
 
 ### 3. Build Scripts (`build/`)
 
-**Pattern**: Numbered files (`10-build.sh`, `20-chrome.sh`, `30-cosmic.sh`) run in order.
+**Pattern**: The `Containerfile` runs `10-build.sh`; that script runs numbered files (`15-system-optimizations.sh`, `20-third-party-repos.sh`, `30-cosmic-desktop.sh`, `40-remove-gnome.sh`, …) in order. No `.example` renaming step.
 
 **Example - `build/10-build.sh`**:
 
@@ -456,39 +520,52 @@ curl -L https://example.com/tool -o /usr/local/bin/tool
 chmod +x /usr/local/bin/tool
 ```
 
-**Example - COPR pattern** (see `build/20-onepassword.sh`):
+**Example - third-party RPM repos** (see `build/20-third-party-repos.sh`):
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
-source /ctx/copr-install-functions.sh
+# Add the vendor repo, install, then remove the repo file
+cat > /etc/yum.repos.d/vendor.repo << 'EOF'
+[vendor]
+name=vendor
+baseurl=https://example.com/rpm/stable/x86_64
+enabled=1
+gpgcheck=1
+gpgkey=https://example.com/linux_signing_key.pub
+EOF
 
-# Chrome
-dnf config-manager addrepo --from-repofile=https://dl.google.com/linux/linux_signing_key.pub
-dnf5 install -y google-chrome-stable
-
-# 1Password via COPR (isolated)
-copr_install_isolated username/repo package-name
+dnf5 install -y vendor-package
+rm -f /etc/yum.repos.d/vendor.repo   # required cleanup
 ```
 
-**Example - Desktop swap** (see `build/30-cosmic.sh`):
+**Example - COPR pattern** (source the helper at `/ctx/build/copr-helpers.sh`):
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Remove GNOME, install COSMIC
-dnf5 group remove -y "GNOME Desktop Environment"
-dnf5 copr enable -y ryanabx/cosmic-epoch
-dnf5 install -y cosmic-desktop
-dnf5 copr disable -y ryanabx/cosmic-epoch
+source /ctx/build/copr-helpers.sh
+
+# COPR (isolated - enabled only for this install, then disabled)
+copr_install_isolated "owner/repo" package-name
+```
+
+**Example - Desktop change** (see `build/30-cosmic-desktop.sh` and `build/40-remove-gnome.sh`):
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Install COSMIC (isolated COPR), then remove GNOME and switch the session
+copr_install_isolated "ryanabx/cosmic-epoch" cosmic-session cosmic-comp
 systemctl set-default graphical.target
 ```
 
-**CRITICAL**: Use `copr_install_isolated` function. Always disable COPRs.
+**CRITICAL**: Use `copr_install_isolated` and always disable COPRs afterwards.
 
-**Example scripts**: See `build/20-onepassword.sh.example` and `build/30-cosmic-desktop.sh.example` for complete working examples.
+**Live examples**: Read `build/20-third-party-repos.sh`, `build/30-cosmic-desktop.sh`, and `build/40-remove-gnome.sh` before writing a new pattern. There are no `.example` scripts in this repository.
 
 ### 4. Homebrew (`custom/brew/`)
 
@@ -509,31 +586,28 @@ brew "node"
 brew "python"
 ```
 
-**Users install via**: `ujust install-default-apps` (create shortcut in `custom/ujust/`)
+**Users install via**: `ujust install-default-apps` (see `custom/ujust/custom-apps.just`)
 
 ### 5. ujust Commands (`custom/ujust/`)
 
-**Files**: `*.just` (all auto-consolidated)
+**Files**: `*.just` (all consolidated into the image's ujust recipes)
 
-**Example - `custom/ujust/apps.just`**:
+**Example - `custom/ujust/custom-apps.just`**:
 
 ```just
+# Install the default Brewfile
 [group('Apps')]
 install-default-apps:
     #!/usr/bin/env bash
+    set -euo pipefail
     brew bundle --file /usr/share/ublue-os/homebrew/default.Brewfile
-
-[group('Apps')]
-install-dev-tools:
-    #!/usr/bin/env bash
-    brew bundle --file /usr/share/ublue-os/homebrew/development.Brewfile
 ```
 
 **RULES**:
 
 - **NEVER** use `dnf5` in ujust - only Brewfile/Flatpak shortcuts
 - Use `[group('Category')]` for organization
-- All `.just` files merged during build
+- Every shipped `*.Brewfile` should have a matching `ujust` shortcut
 
 ### 6. Flatpaks (`custom/flatpaks/`)
 
@@ -561,15 +635,17 @@ Branch=stable
 **Files**:
 
 - `iso/disk.toml` - VM images (QCOW2/RAW): `just build-qcow2`
-- `iso/iso.toml` - Installer ISO: `just build-iso`
+- `iso/iso.toml` - Standard installer ISO: `just build-iso`
+- `iso/iso-nvidia.toml` - NVIDIA installer ISO: `just build-nvidia-iso`
 
-**CRITICAL** - Update bootc switch URL in `iso/iso.toml`:
+**CRITICAL** - Keep the bootc switch URL in `iso/iso.toml` and
+`iso/iso-nvidia.toml` matching this repository:
 
 ```toml
 [customizations.installer.kickstart]
 contents = """
 %post
-bootc switch --mutate-in-place --transport registry ghcr.io/USERNAME/REPO:stable
+bootc switch --mutate-in-place --transport registry ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
 %end
 """
 ```
@@ -580,39 +656,48 @@ bootc switch --mutate-in-place --transport registry ghcr.io/USERNAME/REPO:stable
 
 **Branches**:
 
-- `main` - Production only. Builds `:stable` images. Never push directly.
+- `main` - Production only. Jenkins builds and publishes `:stable` images from it. Never push directly.
 
-**Workflows**:
+**Publication (Jenkins)**:
 
-- `build.yml` - PR check only (does not publish image)
-- `renovate.yml` - Monitors base image updates (every 6 hours)
-- `clean.yml` - Deletes images >90 days (weekly)
-- `validate-*.yml` - Pre-merge validation (shellcheck, Brewfile, Flatpak, etc.)
+- `ci/jenkins/Jenkinsfile.stable` - standard image `ghcr.io/ericrocha97/bluefin-cosmic-dx` (weekly, `H 2 * * 0`)
+- `ci/jenkins/Jenkinsfile.nvidia` - NVIDIA image `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` (daily, `H 10 * * *`)
+- Both build with Docker, push to GHCR, create a GitHub release and notify n8n; publish/release stages are gated on `main`.
+- Full setup lives in `docs/jenkins/README.md`.
 
-**Image Tags**:
+**GitHub Actions (PR/light validation only)**:
 
-- `:stable` - Latest stable release from main branch
+- `build.yml` - PR check only (does not publish the image)
+- `unit-tests.yml` - BATS unit tests
+- `renovate.yml` - Self-hosted Renovate, every 6 hours
+- `clean.yml` - Deletes GHCR images >90 days (weekly)
+- `validate-*.yml` - Pre-merge validation (shellcheck, Brewfile, Flatpak, justfiles, Renovate, Jenkins tests)
+
+**Image Tags** (created by Jenkins):
+
+- `:stable` - Latest stable release from `main`
 - `:stable.YYYYMMDD` - Datestamped stable release
 - `:YYYYMMDD` - Date only
-- `:pr-123` - Pull request builds (for testing)
-- `:sha-abc123` - Git commit SHA (short)
+
+`pr-*` and `sha-*` tags are not published by this repository; PR checks build
+without pushing. The NVIDIA release tag is `v<date>-nvidia`.
 
 **Renovate Bot**:
 
-- Automatically updates base image SHAs in `Containerfile`
-- Runs every 6 hours (configured in `.github/renovate.json5`)
-- Creates PRs for updates - review and merge to keep images current
+- Runs from `.github/workflows/renovate.yml` using the built-in `secrets.GITHUB_TOKEN` (no `RENOVATE_TOKEN`)
+- Updates tracked container images/digests in `Containerfile` and `Justfile` (see `.github/renovate.json5`)
+- Runs every 6 hours; review and merge its PRs to keep images current
 
-### 8. Understanding the Multi-Stage Build Architecture
+### 9. Understanding the Multi-Stage Build Architecture
 
-This template implements a **multi-stage build pattern** following @projectbluefin/distroless.
+This image implements a **multi-stage build pattern** following @projectbluefin/distroless.
 
 **Why Multi-Stage?**
 
 - **Modularity**: Combine resources from multiple OCI containers
 - **Reusability**: Share common components across different images
 - **Maintainability**: Update shared components independently
-- **Reproducibility**: Renovate updates OCI container tags to SHA digests
+- **Reproducibility**: Renovate can update OCI container tags to SHA digests
 
 **Stage Breakdown:**
 
@@ -623,8 +708,6 @@ FROM scratch AS ctx
 COPY build /build                    # Local build scripts
 COPY custom /custom                  # Local customizations
 COPY --from=ghcr.io/projectbluefin/common:latest /system_files /oci/common
-COPY --from=ghcr.io/projectbluefin/branding:latest /system_files /oci/branding
-COPY --from=ghcr.io/ublue-os/artwork:latest /system_files /oci/artwork
 COPY --from=ghcr.io/ublue-os/brew:latest /system_files /oci/brew
 ```
 
@@ -637,7 +720,7 @@ This stage combines:
 **Stage 2: Final Image**
 
 ```dockerfile
-FROM ghcr.io/ublue-os/silverblue-main:42
+FROM ${BASE_IMAGE}                   # default: ghcr.io/ublue-os/bluefin-dx:stable
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     /ctx/build/10-build.sh
@@ -645,7 +728,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
 
 The final stage:
 
-- Starts from base image
+- Starts from the base selected by `ARG BASE_IMAGE`
 - Mounts the `ctx` stage at `/ctx`
 - Runs build scripts with access to all resources
 
@@ -655,51 +738,40 @@ Build scripts can access files from OCI containers:
 
 ```bash
 #!/usr/bin/env bash
-# Example: Copy branding files
-cp -r /ctx/oci/branding/* /usr/share/branding/
+# Example: Copy common desktop config into the image
+cp -r /ctx/oci/common/* /usr/share/bluefin/
 
-# Example: Copy common desktop config
-cp /ctx/oci/common/config.yaml /etc/myapp/
-
-# Example: Use brew files
+# Example: Use brew integration files
 cp /ctx/oci/brew/*.sh /usr/local/bin/
 ```
 
 **Renovate Integration:**
 
-- Renovate monitors OCI container tags (`:latest`)
-- Automatically updates to SHA digests for reproducibility
+- Renovate tracks the container images pinned in `Containerfile` and `Justfile`
+- It can update `:latest` tags to SHA digests for reproducibility
 - Example: `:latest` → `@sha256:abc123...`
-- Ensures builds are reproducible and verifiable
 
 **Reference:** See [Bluefin Contributing Guide](https://docs.projectbluefin.io/contributing/) for architecture diagram
 
-### 9. Image Signing (Optional, Recommended for Production)
+### 10. Image Signing (Out of Scope)
 
-**Default**: DISABLED (commented out in workflows) to allow first builds.
+Cosign signing is **out of scope** for this repository. Images published by
+Jenkins are unsigned, and `build.yml` triggers on pull requests only, so it never
+publishes or signs. The signing steps in `build.yml` exist only for possible
+future reuse.
 
-```bash
-# Generate keys
-COSIGN_PASSWORD="" cosign generate-key-pair
-# Creates: cosign.key (SECRET), cosign.pub (COMMIT)
-
-# Add to GitHub
-# Settings → Secrets and Variables → Actions → New secret
-# Name: SIGNING_SECRET
-# Value: <paste entire contents of cosign.key>
-
-# Uncomment signing sections in:
-# - .github/workflows/build.yml
-# - .github/workflows/build-testing.yml
-```
-
-**NEVER commit `cosign.key`**. Already in `.gitignore`.
+- Do **not** document images or releases as signed.
+- Do **not** add signing steps to the Jenkins pipelines.
+- **NEVER commit `cosign.key`**; it is already in `.gitignore`. Only `cosign.pub`
+  may be committed.
+- If signing is enabled later, treat it as a separate, explicit change and
+  update this file and the `finpilot-ci`/`finpilot-templates` skills together.
 
 ---
 
 ## Critical Rules (Enforced)
 
-1. **ALWAYS** use Conventional Commits format for ALL commits (required for Release Please)
+1. **ALWAYS** use Conventional Commits format for ALL commits and PR titles
    - Format: `<type>[scope]: <description>`
    - Valid types: `feat:`, `fix:`, `docs:`, `chore:`, `build:`, `ci:`, `refactor:`, `test:`
    - Breaking changes: Add `!` or `BREAKING CHANGE:` in footer
@@ -709,16 +781,18 @@ COSIGN_PASSWORD="" cosign generate-key-pair
 4. **ALWAYS** use `dnf5` exclusively (never `dnf`, `yum`, `rpm-ostree`)
 5. **ALWAYS** use `-y` flag for non-interactive installs
 6. **NEVER** use `dnf5` in ujust files - only Brewfile/Flatpak shortcuts
-7. **ALWAYS** work on testing branch for development
-8. **ALWAYS** let Release Please handle testing→main merges
-9. **NEVER** push directly to main (only via Release Please)
+7. **ALWAYS** work on a feature branch for development
+8. **ALWAYS** merge to `main` through a pull request; Jenkins publishes from `main`
+9. **NEVER** push directly to `main`
 10. **ALWAYS** confirm with user before deviating from @ublue-os/bluefin patterns
 11. **ALWAYS** run shellcheck/YAML validation before committing
-12. **ALWAYS** update bootc switch URL in `iso/iso.toml` to match user's repo
-13. **ALWAYS** follow numbered script convention: `10-*.sh`, `20-*.sh`, `30-*.sh`
-14. **ALWAYS** check example scripts before creating new patterns (`.example` files in `build/`)
+12. **ALWAYS** keep the bootc switch URL in `iso/iso.toml` and `iso/iso-nvidia.toml` matching this repository
+13. **ALWAYS** follow the numbered script convention: `10-*.sh`, `15-*.sh`, `20-*.sh`, `30-*.sh`, `40-*.sh`
+14. **ALWAYS** read the live numbered scripts before creating a new pattern; there are no `.example` files in `build/`
 15. **ALWAYS** validate that new Flatpak IDs exist on Flathub before adding
 16. **NEVER** modify validation workflows without understanding impact on PR checks
+17. **NEVER** document images or releases as signed; cosign signing is out of scope
+18. **NEVER** make a full local image build a prerequisite for a documentation or script-syntax change - use the light checks
 
 ---
 
@@ -726,21 +800,22 @@ COSIGN_PASSWORD="" cosign generate-key-pair
 
 | Symptom | Cause | Solution |
 |---------|-------|----------|
-| Build fails: "permission denied" | Signing misconfigured | Verify signing commented out OR `SIGNING_SECRET` set |
+| Local unit tests won't start | Bats not installed | Install Bats; `just test-unit` prints the install hint |
 | Build fails: "package not found" | Typo or unavailable | Check spelling, verify on RPMfusion, add COPR if needed |
-| Build fails: "base image not found" | Invalid FROM line | Check syntax in `Containerfile` line 24 |
-| Build fails: "shellcheck error" | Script syntax error | Run `shellcheck build/*.sh` locally, fix errors |
+| Build fails: "base image not found" | Bad `ARG BASE_IMAGE` or `FROM` | Check the `ARG BASE_IMAGE` default and the `FROM ${BASE_IMAGE}` line in `Containerfile` |
+| Build fails: "shellcheck error" | Script syntax error | Run `just lint` (or `shellcheck build/*.sh`) locally, fix errors |
 | PR validation fails: Brewfile | Invalid Brewfile syntax | Check Ruby syntax, ensure packages exist |
 | PR validation fails: Flatpak | Invalid app ID | Verify app ID exists on <https://flathub.org/> |
-| PR validation fails: justfile | Invalid just syntax | Run `just --list` locally to test |
-| Changes not in production | Wrong workflow | Verify Jenkins job execution and `ci/jenkins/Jenkinsfile.stable`/`ci/jenkins/Jenkinsfile.nvidia` branch/trigger configuration |
-| ISO missing customizations | Wrong bootc URL | Update `iso/iso.toml` bootc switch URL to match repo |
+| PR validation fails: justfile | Invalid just syntax | Run `just check` locally |
+| PR validation fails: Jenkins tests | Broken `ci/jenkins` shell tests | Run `bash ci/jenkins/tests/run-all.sh` locally |
+| Changes not in production | Wrong workflow | Verify the Jenkins job and `ci/jenkins/Jenkinsfile.stable`/`ci/jenkins/Jenkinsfile.nvidia` triggers (GitHub Actions never publishes) |
+| ISO missing customizations | Wrong bootc URL | Update the bootc switch URL in `iso/iso.toml` and `iso/iso-nvidia.toml` to match this repo |
 | COPR packages missing after boot | COPR not disabled | COPRs persist if not disabled - use `copr_install_isolated` |
-| ujust commands not working | Wrong install location | Files must be in `custom/ujust/` and copied to `/usr/share/ublue-os/just/` |
+| ujust commands not working | Wrong install location | Files must be in `custom/ujust/` and copied to the image's ujust directory |
 | Flatpaks not installed | Expected behavior | Flatpaks install post-first-boot, not in ISO/container |
 | Local build fails | Wrong environment | Must run on bootc-based system or have podman installed |
-| Renovate not creating PRs | Configuration issue | Check `.github/renovate.json5` syntax |
-| Third-party repo not working | Repo file persists | Remove repo file at end of script (see examples) |
+| Renovate not creating PRs | Configuration or token issue | Check `.github/renovate.json5` syntax and the `permissions`/`GITHUB_TOKEN` in `.github/workflows/renovate.yml` |
+| Third-party repo not working | Repo file persists | Remove the repo file at the end of the script (see `build/20-third-party-repos.sh`) |
 
 ---
 
@@ -750,7 +825,7 @@ COSIGN_PASSWORD="" cosign generate-key-pair
 
 **Use case**: Installing Google Chrome, 1Password, VS Code, etc.
 
-**Example**: See `build/20-onepassword.sh.example`
+**Example**: See `build/20-third-party-repos.sh`
 
 **Steps**:
 
@@ -781,7 +856,7 @@ rm -f /etc/yum.repos.d/google-chrome.repo
 
 **Use case**: Installing packages from Fedora COPR (community repos)
 
-**Example**: See `build/copr-helpers.sh` and `build/30-cosmic-desktop.sh.example`
+**Example**: See `build/copr-helpers.sh` and `build/30-cosmic-desktop.sh`
 
 **Always use `copr_install_isolated` function**:
 
@@ -802,7 +877,7 @@ copr_install_isolated "ryanabx/cosmic-epoch" \
 
 **Use case**: Swap GNOME for KDE, COSMIC, etc.
 
-**Example**: See `build/30-cosmic-desktop.sh.example`
+**Example**: See `build/30-cosmic-desktop.sh` and `build/40-remove-gnome.sh`
 
 **Steps**:
 
@@ -835,12 +910,12 @@ systemctl set-default graphical.target
 ```just
 # vim: set ft=make :
 
-# Install development tools
+# Install the default Brewfile
 [group('Apps')]
-install-dev-tools:
+install-default-apps:
     #!/usr/bin/env bash
-    echo "Installing development tools..."
-    brew bundle --file /usr/share/ublue-os/homebrew/development.Brewfile
+    set -euo pipefail
+    brew bundle --file /usr/share/ublue-os/homebrew/default.Brewfile
 
 # Custom system command
 [group('System')]
@@ -852,7 +927,16 @@ my-custom-command:
 
 ### Pattern 6: Local Testing Workflow
 
-**Complete local testing cycle**:
+**Light checks first (no build required)**:
+
+```bash
+just check                 # Justfile and *.just syntax
+just lint                  # shellcheck across *.sh
+bats tests/unit/           # static BATS unit tests
+git diff --check           # whitespace
+```
+
+**Full local cycle (optional, capable machine only)**:
 
 ```bash
 # 1. Build container image
@@ -899,9 +983,9 @@ pre-commit run --all-files
 
 ### /opt Immutability
 
-Some packages (Chrome, Docker Desktop) write to `/opt`. On Fedora, it's symlinked to `/var/opt` (mutable). To make immutable:
-
-Uncomment `Containerfile` line 20:
+Some packages (Chrome, Docker Desktop) write to `/opt`. On Fedora, it's symlinked
+to `/var/opt` (mutable). This image already makes `/opt` immutable with the
+following `Containerfile` step:
 
 ```dockerfile
 RUN rm /opt && mkdir /opt
@@ -916,7 +1000,7 @@ RUN rm /opt && mkdir /opt
 
 ### Custom Build Functions
 
-See `build/copr-install-functions.sh` for reusable patterns:
+See `build/copr-helpers.sh` for reusable patterns:
 
 - `copr_install_isolated` - Enable COPR, install packages, disable COPR
 - Follow @ublue-os/bluefin conventions exactly
@@ -927,14 +1011,13 @@ See `build/copr-install-functions.sh` for reusable patterns:
 
 ### Container Build Flow
 
-1. **Base Image** - Pulls base image specified in `Containerfile` FROM line
-2. **Context Stage** - Mounts `build/` and `custom/` directories
-3. **Build Scripts** - Runs scripts in `build/` directory in numerical order:
+1. **Base Image** - Pulls the image selected by `ARG BASE_IMAGE` (`FROM ${BASE_IMAGE}`)
+2. **Context Stage** - Mounts `build/`, `custom/`, and the `ctx` OCI imports
+3. **Build Scripts** - `10-build.sh` runs first and then runs the numbered scripts in order:
    - `10-build.sh` - Always runs first (copies custom files, installs packages)
-   - `20-*.sh` - Additional scripts (if present and not .example)
-   - `30-*.sh` - More scripts (if present and not .example)
-4. **Container Lint** - Validates final image with `bootc container lint`
-5. **Push to Registry** - Uploads to GitHub Container Registry (ghcr.io)
+   - `15-*.sh`, `20-*.sh`, `30-*.sh`, `40-*.sh` - Auto-run in numerical order
+4. **Container Lint** - Validates the final image with `bootc container lint --fatal-warnings`
+5. **Publish to Registry** - Jenkins pushes to GitHub Container Registry (ghcr.io); GitHub Actions does not publish
 
 **Dual-Variant Build**: The Containerfile accepts `--build-arg BASE_IMAGE=<url>` to override the base image. Two Jenkins pipelines (`ci/jenkins/Jenkinsfile.stable` and `ci/jenkins/Jenkinsfile.nvidia`) build with different base images and publish to separate GHCR packages.
 
@@ -967,13 +1050,13 @@ See `build/copr-install-functions.sh` for reusable patterns:
 
 - Uses GitHub runners
 - Runs on pull requests to `main` (PR check only)
-- Includes validation steps
-- Can include signing logic for future reuse, but does not publish in current PR-check mode
+- Includes light validation (shellcheck, BATS, Brewfile, Flatpak, justfiles, Renovate, Jenkins tests)
+- Keeps signing steps only for possible future reuse, but never publishes in PR-check mode
 
 **Production builds** (Jenkins):
 
 - Uses self-hosted Jenkins pipelines (`ci/jenkins/Jenkinsfile.stable` and `ci/jenkins/Jenkinsfile.nvidia`)
-- Handles official build, GHCR publish, and release automation
+- Handles the official build, GHCR publish (unsigned), GitHub release, and n8n notification
 
 ### Image Layers and Caching
 
@@ -994,17 +1077,16 @@ See `build/copr-install-functions.sh` for reusable patterns:
 
 ## Image Tags Reference
 
-**Main branch** (production releases):
+**Main branch** (published by Jenkins):
 
 - `stable` - Latest stable release (recommended)
 - `stable.20250129` - Datestamped stable release
 - `20250129` - Date only
-- `v1.0.0` - Version from Release Please
 
-**PR builds**:
-
-- `pr-123` - Pull request number
-- `sha-abc123` - Git commit SHA (short)
+The NVIDIA pipeline publishes the same tag scheme to
+`ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia`, with release tag
+`v<date>-nvidia`. PR-check builds (`build.yml`) are never pushed to the registry,
+so there are no published `pr-*` or `sha-*` tags.
 
 ---
 
@@ -1020,7 +1102,8 @@ When user requests customization, check in this order:
    - **Containerfile**: Uses `ARG BASE_IMAGE` to support dual-variant builds. The default is `bluefin-dx:stable` (standard). Pass `--build-arg BASE_IMAGE=ghcr.io/ublue-os/bluefin-dx-nvidia-open:stable-daily` for the NVIDIA variant. Do not remove the ARG.
 6. **`Justfile`** (2%) - Image name, build parameters
 7. **`iso/*.toml`** (2%) - ISO/disk customization for testing
-8. **`.github/workflows/`** (1%) - Metadata, triggers, workflow config
+8. **`.github/workflows/`** (1%) - PR checks, validation triggers and Renovate
+9. **`.agents/skills/`** (1%) - Agent Skills and the router table
 
 ### Files to AVOID Modifying
 
@@ -1048,25 +1131,24 @@ When user requests customization, check in this order:
 **Build failures**:
 
 ```bash
-# Build with verbose output
+# Build with verbose output (optional; a full build is not a required local gate)
 podman build --log-level=debug .
 
 # Check build script syntax
-shellcheck build/*.sh
+just lint
 
-# Test specific script in container
-podman run --rm -it ghcr.io/ublue-os/bluefin:stable bash
+# Inspect the base image interactively
+podman run --rm -it ghcr.io/ublue-os/bluefin-dx:stable bash
 # Then run your script commands manually
 ```
 
 **Brewfile issues**:
 
 ```bash
-# Validate Brewfile syntax
-brew bundle check --file custom/brew/default.Brewfile
+# Validate a Brewfile safely (does not evaluate PR-controlled Ruby)
+bash build/validate-brewfiles.sh custom/brew
 
-# List what would be installed
-brew bundle list --file custom/brew/default.Brewfile
+# Do NOT use `brew bundle check --file <untrusted>` - it evaluates the file as Ruby
 ```
 
 **Just file issues**:
@@ -1094,17 +1176,16 @@ just --verbose install-default-apps
 **Common CI failures**:
 
 - Shellcheck errors: Fix script syntax
+- BATS failures: Run `bats tests/unit/` locally
 - Brewfile validation: Check package names exist
 - Flatpak validation: Verify app IDs on Flathub
-- Image pull failures: Check base image SHA/tag
+- Jenkins shell tests: Run `bash ci/jenkins/tests/run-all.sh`
+- Image pull failures: Check the `BASE_IMAGE` value/tag
 
-**Test PR before merge**:
+**Previewing a PR**:
 
-```bash
-# PR builds are tagged as :pr-NUMBER
-podman pull ghcr.io/YOUR_USERNAME/YOUR_REPO:pr-123
-podman run --rm -it ghcr.io/YOUR_USERNAME/YOUR_REPO:pr-123 bash
-```
+PR checks do not push an image, so there is no `:pr-NUMBER` tag to pull. Use a
+local `just build` or the Jenkins-published `:stable` image to test changes.
 
 ### Runtime Debugging
 
@@ -1160,6 +1241,8 @@ brew install package-name
 
 ## Resources & Documentation
 
+- **Agent Skills**: `.agents/skills/README.md` and the routing table in `.agents/skills/finpilot-router/SKILL.md`
+- **Jenkins setup**: `docs/jenkins/README.md`
 - **Bluefin patterns**: <https://github.com/ublue-os/bluefin>
 - **bootc documentation**: <https://github.com/containers/bootc>
 - **Conventional Commits**: <https://www.conventionalcommits.org/>
@@ -1195,6 +1278,8 @@ Assisted-by: Claude 3.5 Sonnet via GitHub Copilot
 
 ---
 
-**Last Updated**: 2025-11-14  
-**Template Version**: bluefin-cosmic-dx (Dual-build: standard + NVIDIA variants)  
-**Maintainer**: Universal Blue Community
+**Last Updated**: 2026-09-20
+
+**Template Version**: bluefin-cosmic-dx (Dual-build: standard + NVIDIA variants)
+
+**Maintainer**: ericrocha97 (downstream `bluefin-cosmic-dx` fork)

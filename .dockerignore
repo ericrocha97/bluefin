@@ -1,0 +1,50 @@
+# Docker/Podman build context filter.
+#
+# The Containerfile only consumes two directories from the build context:
+# the ctx stage copies `build/` and `custom/` (see `COPY build /build` and
+# `COPY custom /custom`). Everything listed below is never copied into the
+# image, so excluding it keeps the context small and reproducible.
+#
+# NEVER add a pattern that hides `build/`, `custom/`, `Containerfile`, or the
+# files those directories are expected to contain: `build/*.sh` reads
+# `/ctx/build/**` and `/ctx/custom/**` (Brewfiles, ujust files, Flatpak
+# preinstall files and custom/system-files) while the image is built.
+
+# Version control and repository metadata
+.git
+.gitignore
+.gitattributes
+.github
+.editorconfig
+.pre-commit-config.yaml
+
+# Agent scratch and tooling caches
+.agents
+.superpowers
+.code-review-graph
+.vscode
+.ruff_cache
+
+# Documentation and repository meta files not read at build time
+docs
+README.md
+README.pt-BR.md
+CONTRIBUTING.md
+AGENTS.md
+LOCAL-TESTING.md
+LICENSE
+artifacthub-repo.yml
+cosign.pub
+.hadolint.yaml
+
+# Tests and automation are not part of the image context
+tests
+ci
+n8n
+
+# Local build artifacts, scratch dirs and disk/ISO images
+output
+_build-*
+*.log
+*.vhdx
+iso

@@ -57,6 +57,30 @@ FROM ${BASE_IMAGE}
 ## Alternative GNOME OS base image (uncomment to use):
 # FROM quay.io/gnome_infrastructure/gnome-build-meta:gnomeos-nightly
 
+# Image identity - these define how bootc, fastfetch, and the ublue ecosystem
+# recognize your image. ARG BASE_IMAGE is a global ARG (declared before FROM),
+# so it must be redeclared inside this stage to be readable by RUN.
+ARG BASE_IMAGE
+ARG IMAGE_NAME="bluefin-cosmic-dx"
+ARG IMAGE_VENDOR="ericrocha97"
+ARG UBLUE_IMAGE_TAG="stable"
+ARG BASE_IMAGE_NAME="bluefin-dx"
+# Commit metadata and release tag passed from CI; empty for local builds.
+ARG SHA_HEAD_SHORT=""
+ARG RELEASE_TAG=""
+
+# Generate the image identity metadata before any modification. /boot and /tmp
+# are mounted as tmpfs so build-time content never persists into the image.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=tmpfs,dst=/boot \
+    --mount=type=tmpfs,dst=/tmp \
+    BASE_IMAGE="${BASE_IMAGE}" \
+    IMAGE_NAME="${IMAGE_NAME}" \
+    IMAGE_VENDOR="${IMAGE_VENDOR}" \
+    UBLUE_IMAGE_TAG="${UBLUE_IMAGE_TAG}" \
+    BASE_IMAGE_NAME="${BASE_IMAGE_NAME}" \
+    /ctx/build/00-image-info.sh
+
 ### /opt
 ## Some bootable images, like Fedora, have /opt symlinked to /var/opt, in order to
 ## make it mutable/writable for users. However, some packages write files to this directory,
@@ -79,19 +103,24 @@ RUN rm /opt && mkdir /opt
 ##   - Files from @ublue-os/brew at /oci/brew
 ## Scripts are run in numerical order (10-build.sh, 20-example.sh, etc.)
 
-# Release tag passed from CI (e.g. v20260212), empty for local builds
-ARG RELEASE_TAG=""
-# Inherit global base image value into this stage so build scripts can read it
-ARG BASE_IMAGE
-
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    --mount=type=cache,dst=/var/cache \
-    --mount=type=cache,dst=/var/log \
+    --mount=type=cache,dst=/var/cache/libdnf5 \
+    --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=tmpfs,dst=/boot \
     --mount=type=tmpfs,dst=/tmp \
     BASE_IMAGE="${BASE_IMAGE}" \
     RELEASE_TAG="${RELEASE_TAG}" \
     /ctx/build/10-build.sh
 
+### CLEANUP
+## Remove build artifacts before linting. /tmp and /boot are tmpfs so the
+## cleanup operates on disposable mounts and never persists their contents.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=tmpfs,dst=/tmp \
+    --mount=type=tmpfs,dst=/boot \
+    /ctx/build/clean-stage.sh
+
 ### LINTING
-## Verify final image and contents are correct.
-RUN bootc container lint
+## Verify final image and contents are correct. --fatal-warnings turns any
+## warning into a build failure so dirty images never ship.
+RUN bootc container lint --fatal-warnings

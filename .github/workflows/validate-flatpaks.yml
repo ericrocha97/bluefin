@@ -26,14 +26,4 @@ jobs:
 
           set -xeuo pipefail
 
-          find "custom/flatpaks" -iname '*\.preinstall' -print0 | \
-            while IFS= read -r -d '' flatpaks_file ; do \
-              echo "::group:: ===$(basename "$flatpaks_file")==="
-              while IFS= read -r line ; do \
-                flatpak_id=$(printf '%s\n' "$line" | sed -n 's/^\[Flatpak Preinstall \([^]]*\)\].*/\1/p' | tr -d '\r' | xargs); \
-                if [ -n "$flatpak_id" ]; then \
-                  flatpak remote-info --user flathub "$flatpak_id"; \
-                fi; \
-              done < <(grep -E '^\[Flatpak Preinstall ' "$flatpaks_file")
-              echo "::endgroup::"
-            done
+          bash build/validate-flatpaks.sh custom/flatpaks

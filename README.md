@@ -16,6 +16,27 @@ It builds a COSMIC-only custom bootc image based on Bluefin DX, using the multi-
 - Published image registries: `ghcr.io/ericrocha97/bluefin-cosmic-dx` (standard) and `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` (NVIDIA).
 - GitHub Actions (`.github/workflows/build.yml`) now runs only as a PR check (`pull_request` for `main`) and does not publish images.
 
+## Guided Copilot Mode
+
+This repository is meant to be worked on with a coding agent (GitHub Copilot, OpenCode, or similar) using the standard fork workflow:
+
+- Never commit directly to `main`; create a feature branch and open a pull request against `main`.
+- Use Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, ...) for every commit and PR title.
+- Run the light checks locally before pushing: `just check`, `just lint`, `bats tests/unit/`, `bash ci/jenkins/tests/run-all.sh`, and `git diff --check`. A full image build is not required locally.
+- GitHub Actions validates the pull request (image build as a PR check, unit tests, shellcheck, Brewfile/Flatpak/just/Renovate/Jenkins checks). It never publishes or signs images.
+- Production images are built and published by Jenkins from `main` only — see [Promote to Stable](#promote-to-stable).
+- Do not claim that images are signed: cosign signing is out of scope for this repository. See [Optional: Enable Image Signing](#optional-enable-image-signing).
+
+## Promote to Stable
+
+`main` is the production branch. Promote changes by merging a pull request into `main`; never push to `main` directly.
+
+- **Standard image** — `ci/jenkins/Jenkinsfile.stable` builds and publishes `ghcr.io/ericrocha97/bluefin-cosmic-dx` (scheduled weekly, `H 2 * * 0`).
+- **NVIDIA image** — `ci/jenkins/Jenkinsfile.nvidia` builds and publishes `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` (scheduled daily, `H 10 * * *`).
+- Each run builds with Docker, pushes the GHCR tags `stable`, `stable.YYYYMMDD`, and `YYYYMMDD`, then creates the GitHub release (`v<date>` for the standard image, `v<date>-nvidia` for NVIDIA) and notifies n8n.
+- The GHCR push and release stages are gated on the effective branch being `main`, so they are skipped elsewhere.
+- GitHub Actions never publishes images here; it only performs PR/light validation plus scheduled maintenance (Renovate updates and image cleanup). Images published by Jenkins are unsigned.
+
 ## What Makes this Raptor Different?
 
 Here are the changes from Bluefin DX. This image is based on Bluefin and includes these customizations:
@@ -34,7 +55,7 @@ Here are the changes from Bluefin DX. This image is based on Bluefin and include
 
 ### Added Applications (Runtime)
 
-- **CLI Tools (Homebrew)**: None (no Brewfiles included yet).
+- **CLI Tools (Homebrew)**: `rtk` (CLI proxy that minimizes LLM token consumption) and `topgrade` (upgrades all the things — system packages, Homebrew, and more with one command). Install them at runtime with `ujust install-default-apps`.
 - **GUI Apps (Flatpak)**: Zen Browser.
 
 ### Removed/Disabled
@@ -58,9 +79,9 @@ Here are the changes from Bluefin DX. This image is based on Bluefin and include
 
 - COSMIC Greeter is enabled as the default login manager.
 - COSMIC is the only desktop session presented at login.
-- Custom ujust commands available: install-nvm, install-sdkman, install-dev-managers.
+- Custom ujust commands available: install-nvm, install-sdkman, install-dev-managers, install-default-apps.
 
-*Last updated: 2026-09-03*
+*Last updated: 2026-09-16*
 
 ## What is this image
 
@@ -146,15 +167,16 @@ just --list             # Show all available commands
 
 **Custom ujust commands (in the image):**
 
-This image includes custom `ujust` commands for development managers:
+This image includes custom `ujust` commands for development managers and runtime CLI tools:
 
 ```bash
 ujust install-nvm
 ujust install-sdkman
 ujust install-dev-managers
+ujust install-default-apps   # installs rtk and topgrade from default.Brewfile
 ```
 
-There are no Brewfiles included by default. If you add `.Brewfile` files (matching the `*.Brewfile` pattern) anywhere in `custom/brew/`, they will be copied during build automatically.
+`custom/brew/default.Brewfile` ships with `rtk` and `topgrade`. If you add more `.Brewfile` files (matching the `*.Brewfile` pattern) anywhere in `custom/brew/`, they will be copied during build automatically.
 
 **Complete workflow:**
 

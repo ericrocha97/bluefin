@@ -16,6 +16,27 @@ Ele constrói uma imagem bootc customizada COSMIC-only baseada no Bluefin DX, us
 - Registros oficiais da imagem: `ghcr.io/ericrocha97/bluefin-cosmic-dx` (padrão) e `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` (NVIDIA).
 - O GitHub Actions (`.github/workflows/build.yml`) agora roda apenas como check de PR (`pull_request` para `main`) e não publica imagem.
 
+## Modo Copilot Guiado
+
+Este repositório foi feito para ser trabalhado com um agente de código (GitHub Copilot, OpenCode ou similar) usando o fluxo padrão de fork:
+
+- Nunca faça commit diretamente na `main`; crie uma feature branch e abra um pull request contra a `main`.
+- Use Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, ...) em todo commit e no título do PR.
+- Rode os checks leves localmente antes de enviar: `just check`, `just lint`, `bats tests/unit/`, `bash ci/jenkins/tests/run-all.sh` e `git diff --check`. Um build completo da imagem não é obrigatório localmente.
+- O GitHub Actions valida o pull request (build da imagem como check de PR, testes unitários, shellcheck, checagens de Brewfile/Flatpak/just/Renovate/Jenkins). Ele nunca publica nem assina imagens.
+- As imagens de produção são construídas e publicadas pelo Jenkins somente a partir da `main` — veja [Promover para Stable](#promover-para-stable).
+- Não afirme que as imagens são assinadas: assinatura com cosign está fora do escopo deste repositório. Veja [Opcional: Habilitar assinatura de imagem](#opcional-habilitar-assinatura-de-imagem).
+
+## Promover para Stable
+
+A `main` é a branch de produção. Promova mudanças fazendo merge de um pull request na `main`; nunca faça push direto na `main`.
+
+- **Imagem padrão** — `ci/jenkins/Jenkinsfile.stable` constrói e publica `ghcr.io/ericrocha97/bluefin-cosmic-dx` (agendado semanalmente, `H 2 * * 0`).
+- **Imagem NVIDIA** — `ci/jenkins/Jenkinsfile.nvidia` constrói e publica `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` (agendado diariamente, `H 10 * * *`).
+- Cada execução constrói com Docker, envia as tags GHCR `stable`, `stable.YYYYMMDD` e `YYYYMMDD`, depois cria o release no GitHub (`v<date>` para a imagem padrão, `v<date>-nvidia` para a NVIDIA) e notifica o n8n.
+- Os estágios de push no GHCR e de release são condicionados à branch efetiva ser a `main`, então são ignorados em qualquer outro lugar.
+- O GitHub Actions nunca publica imagens aqui; ele apenas faz validação de PR/leve e manutenção agendada (atualizações do Renovate e limpeza de imagens). As imagens publicadas pelo Jenkins não são assinadas.
+
 ## O que torna este Raptor diferente?
 
 Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no Bluefin e inclui estas personalizações:
@@ -34,7 +55,7 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 
 ### Aplicações adicionadas (runtime)
 
-- **Ferramentas CLI (Homebrew)**: Nenhuma (ainda sem Brewfiles).
+- **Ferramentas CLI (Homebrew)**: `rtk` (proxy de CLI que minimiza o consumo de tokens de LLM) e `topgrade` (atualiza tudo — pacotes do sistema, Homebrew e mais com um único comando). Instale em runtime com `ujust install-default-apps`.
 - **Apps GUI (Flatpak)**: Zen Browser.
 
 ### Removidos/Desativados
@@ -58,9 +79,9 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 
 - COSMIC Greeter é habilitado como gerenciador de login padrão.
 - COSMIC é a única sessão de desktop apresentada no login.
-- Comandos customizados do ujust disponíveis: install-nvm, install-sdkman, install-dev-managers.
+- Comandos customizados do ujust disponíveis: install-nvm, install-sdkman, install-dev-managers, install-default-apps.
 
-*Última atualização: 2026-09-03*
+*Última atualização: 2026-09-16*
 
 ## O que é esta imagem
 
@@ -142,15 +163,16 @@ just --list             # Mostra todos os comandos disponíveis
 
 **Comandos ujust customizados (na imagem):**
 
-Esta imagem inclui comandos `ujust` para gerenciadores de desenvolvimento:
+Esta imagem inclui comandos `ujust` para gerenciadores de desenvolvimento e ferramentas CLI de runtime:
 
 ```bash
 ujust install-nvm
 ujust install-sdkman
 ujust install-dev-managers
+ujust install-default-apps   # instala rtk e topgrade a partir do default.Brewfile
 ```
 
-Não existem Brewfiles por padrão. Se você adicionar arquivos `.Brewfile` (correspondentes ao padrão `*.Brewfile`) em qualquer lugar dentro de `custom/brew/`, eles serão copiados durante o build automaticamente.
+O `custom/brew/default.Brewfile` inclui `rtk` e `topgrade`. Se você adicionar mais arquivos `.Brewfile` (correspondentes ao padrão `*.Brewfile`) em qualquer lugar dentro de `custom/brew/`, eles serão copiados durante o build automaticamente.
 
 **Fluxo completo:**
 
