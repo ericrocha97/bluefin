@@ -88,6 +88,11 @@ main() (
     # bundle`, so it fails closed here before `brew info` is ever invoked.
     # `#`, `{` and `}` are excluded from the quoted name in both quote styles so
     # string interpolation (#{...}, #$var, #@ivar) can never reach the evaluator.
+    # Any other nonblank, noncomment line (for example a bare
+    # `system("curl ... | sh")`) is arbitrary Ruby and is rejected too, so it
+    # cannot be copied into the image and evaluated by `brew bundle` at install
+    # time. Blank lines, comments and the literal taps already validated above
+    # remain allowed.
     double_entry='^[[:space:]]*(brew|cask)[[:space:]]+"([^"#{}]+)"[[:space:]]*(#.*)?$'
     single_entry="^[[:space:]]*(brew|cask)[[:space:]]+'([^'#{}]+)'[[:space:]]*(#.*)?$"
     declaration='^[[:space:]]*(brew|cask)([^[:alnum:]_]|$)'
@@ -117,6 +122,18 @@ main() (
             elif [[ "${line}" =~ ${declaration} ]]; then
                 failed=$((failed + 1))
                 printf 'FAIL: %s:%s: expected a quoted literal brew/cask name: %s\n' "${brewfile}" "${line_number}" "${line}" >&2
+            else
+                # Fail closed on anything that is not a blank line, a comment or
+                # a literal tap already accepted above. Otherwise arbitrary Ruby
+                # (e.g. `system("curl ... | sh")`) would pass validation and be
+                # evaluated by `brew bundle` with the user's privileges.
+                if [[ ! "${line}" =~ ^[[:space:]]*$ \
+                    && ! "${line}" =~ ^[[:space:]]*# \
+                    && ! "${line}" =~ ${tap_entry} \
+                    && ! "${line}" =~ ${tap_single} ]]; then
+                    failed=$((failed + 1))
+                    printf 'FAIL: %s:%s: not an accepted tap/brew/cask declaration: %s\n' "${brewfile}" "${line_number}" "${line}" >&2
+                fi
             fi
         done < "${brewfile}"
     done
