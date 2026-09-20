@@ -69,6 +69,15 @@ mkdir -p /etc/sysctl.d/
 cp -rv "${SYSTEM_FILES_DIR}"/etc/sysctl.d/* /etc/sysctl.d/
 log_success "Copied splitlock mitigation disable"
 
+# Configure strict Cosign verification for bootc image updates. Enforcement is
+# enabled by the user with bootc switch --enforce-container-sigpolicy after the
+# first boot; keeping the policy in the image makes it available thereafter.
+mkdir -p /etc/pki/containers /etc/containers/registries.d/
+cp -v "${SYSTEM_FILES_DIR}"/etc/pki/containers/cosign.pub /etc/pki/containers/cosign.pub
+cp -v "${SYSTEM_FILES_DIR}"/etc/containers/policy.json /etc/containers/policy.json
+cp -v "${SYSTEM_FILES_DIR}"/etc/containers/registries.d/bluefin.yaml /etc/containers/registries.d/bluefin.yaml
+log_success "Installed strict Cosign container signature policy"
+
 echo "::endgroup::"
 
 ###############################################################################

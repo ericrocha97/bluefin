@@ -25,7 +25,7 @@ This repository is meant to be worked on with a coding agent (GitHub Copilot, Op
 - Run the light checks locally before pushing: `just check`, `just lint`, `bats tests/unit/`, `bash ci/jenkins/tests/run-all.sh`, and `git diff --check`. A full image build is not required locally.
 - GitHub Actions validates the pull request (image build as a PR check, unit tests, shellcheck, Brewfile/Flatpak/just/Renovate/Jenkins checks). It never publishes or signs images.
 - Production images are built and published by Jenkins from `main` only — see [Promote to Stable](#promote-to-stable).
-- Do not claim that images are signed: cosign signing is out of scope for this repository. See [Optional: Enable Image Signing](#optional-enable-image-signing).
+- Production images are signed by Jenkins with Cosign (traditional key). Do not claim GitHub Actions signs or publishes anything: it is PR-only. See [Image Signing and Verification](#image-signing-and-verification).
 
 ## Promote to Stable
 
@@ -35,7 +35,7 @@ This repository is meant to be worked on with a coding agent (GitHub Copilot, Op
 - **NVIDIA image** — `ci/jenkins/Jenkinsfile.nvidia` builds and publishes `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` (scheduled daily, `H 10 * * *`).
 - Each run builds with Docker, pushes the GHCR tags `stable`, `stable.YYYYMMDD`, and `YYYYMMDD`, then creates the GitHub release (`v<date>` for the standard image, `v<date>-nvidia` for NVIDIA) and notifies n8n.
 - The GHCR push and release stages are gated on the effective branch being `main`, so they are skipped elsewhere.
-- GitHub Actions never publishes images here; it only performs PR/light validation plus scheduled maintenance (Renovate updates and image cleanup). Images published by Jenkins are unsigned.
+- GitHub Actions never publishes images here; it only performs PR/light validation plus scheduled maintenance (Renovate updates and image cleanup). Jenkins signs the published image digests with Cosign.
 
 ## What Makes this Raptor Different?
 
@@ -81,7 +81,7 @@ Here are the changes from Bluefin DX. This image is based on Bluefin and include
 - COSMIC is the only desktop session presented at login.
 - Custom ujust commands available: install-nvm, install-sdkman, install-dev-managers, install-default-apps.
 
-*Last updated: 2026-09-16*
+*Last updated: 2026-09-20*
 
 ## What is this image
 
@@ -128,7 +128,7 @@ Both variants include the same COSMIC desktop, system optimizations, and develop
 
 ## Jenkins Pipeline Operations
 
-For Jenkins CI/CD operations (GHCR publishing, GitHub release automation, n8n webhook ingestion, Postgres persistence, and email alerting), see `docs/jenkins/README.md` (PT-BR).
+For Jenkins CI/CD operations (GHCR publishing, Cosign signing, GitHub release automation, n8n webhook ingestion, Postgres persistence, and email alerting), see `docs/jenkins/README.md` (PT-BR).
 
 ## Basic usage
 
@@ -213,15 +213,64 @@ sudo bootc switch ghcr.io/ublue-os/bluefin-dx:stable
 sudo systemctl reboot
 ```
 
-## Optional: Enable Image Signing
+## Image Signing and Verification
 
-Image signing is optional. The repository keeps Cosign signing steps in `.github/workflows/build.yml` for future reuse, but this workflow currently runs only on PR checks and does not publish/sign release images.
+Production images are signed by the Jenkins pipelines with **Cosign** using a
+traditional key pair. GitHub Actions runs on pull requests only and never
+publishes or signs a release.
 
-- Generate keys with `cosign generate-key-pair`
-- Add private key content as repository secret `SIGNING_SECRET`
-- Keep `cosign.key` private (never commit); only `cosign.pub` may be committed
+- **Jenkins credentials**: the pipelines read the private key from the
+  `cosign_key` credential (`Secret file`) and the key password from the
+  `cosign_pass` credential (`Secret text`). Configure both under `Manage Jenkins
+  → Credentials` in the scope used by the two jobs.
+- **Signing by digest**: after `Push GHCR`, each pipeline records the published
+  digest and signs `IMAGE_REPOSITORY@sha256:<digest>` in a `Sign Image` stage
+  gated on the `main` branch. Tags alone are never signed. The helper is
+  `ci/jenkins/scripts/sign_image.sh`; the same flow covers the standard
+  (`bluefin-cosmic-dx`) and NVIDIA (`bluefin-cosmic-dx-nvidia`) variants.
+- **Public key**: `cosign.pub` is versioned in this repository. The private
+  `cosign.key` is never committed (it is listed in `.gitignore`).
+- **Verification**: verify a published digest against the versioned public key (a
+  tag such as `:stable` also works because it resolves to the signed digest):
 
-If you decide to re-enable GitHub Actions release builds later, these signing steps can be reactivated there. For the current production flow, Jenkins is responsible for build/publish.
+  ```bash
+  cosign verify --key cosign.pub \
+    ghcr.io/ericrocha97/bluefin-cosmic-dx@sha256:<digest>
+  cosign verify --key cosign.pub \
+    ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia@sha256:<digest>
+  ```
+
+### Enabling bootc signature enforcement
+
+The image includes a strict container signature policy and the matching public
+key. The policy rejects unsigned images by default and accepts only signed
+images from this repository's standard and NVIDIA GHCR repositories. It is not
+enabled automatically, because the policy used for the first switch comes from
+the system currently running.
+
+For a new installation, perform the initial switch normally, reboot into the
+image, and then enable enforcement once:
+
+```bash
+sudo bootc switch ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
+sudo systemctl reboot
+sudo bootc switch --enforce-container-sigpolicy \
+  ghcr.io/ericrocha97/bluefin-cosmic-dx:stable
+```
+
+Use `bluefin-cosmic-dx-nvidia:stable` for NVIDIA systems. Existing
+installations can use the same two-step bootstrap: run `bootc upgrade`, reboot,
+then repeat `bootc switch` with `--enforce-container-sigpolicy`. After that,
+future `bootc upgrade` operations use the strict policy. The first switch can
+also be verified immediately if the policy files are installed manually on the
+currently running system before switching.
+
+The policy intentionally blocks unrelated unsigned `podman`/container pulls.
+This is the expected trade-off of strict enforcement; add trusted registries to
+the policy locally if your workflow requires them.
+
+- **Out of scope**: attestations, SBOM, provenance, and rechunking are **not**
+  part of this flow. Do not conflate them with the Cosign signature.
 
 ## COSMIC Login
 

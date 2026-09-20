@@ -175,7 +175,7 @@ image build and treats every warning as a failure.
 | Shell tests | `bash ci/jenkins/tests/run-all.sh` |
 | Branch gating | Publish/release stay gated on `EFFECTIVE_BRANCH == DEFAULT_BRANCH` (`main`) |
 | Variant mechanism | NVIDIA uses `--build-arg BASE_IMAGE=...`, not an extra activation script |
-| Signing | Do not add signing steps; cosign signing is disabled here |
+| Signing | Jenkins signs published digests with Cosign; GitHub Actions never publishes or signs |
 
 **CI trigger:** `validate-jenkins-tests.yml`
 
@@ -185,7 +185,7 @@ image build and treats every warning as a failure.
 | --- | --- |
 | Links resolve | Check relative links to `AGENTS.md`, `.agents/skills/`, `docs/` |
 | Raptor section | Update "What Makes this Raptor Different?" when packages or configuration change |
-| Signing wording | Never document images as signed |
+| Signing wording | Describe Jenkins Cosign signing by digest; never attribute signing to GitHub Actions or a tag |
 | Skill frontmatter | `name` must match the skill directory; list new skills in the router and README |
 
 ## PR Status Check Reference
@@ -223,7 +223,7 @@ here, so do not require it in branch protection.
 - `dnf5`, `dnf`, `yum`, or `rpm-ostree` inside a `custom/ujust/*.just` recipe
 - A workflow referencing `pr-validation.yml`, `build-image.yml`, or a `stable` branch
 - A new action `uses:` on a floating tag instead of a pinned SHA
-- Documentation claiming images are signed
+- Documentation attributing signing to GitHub Actions or a tag, or conflating it with attestations/SBOM/provenance/rechunking
 - Treating the full image build as a local prerequisite for a docs or syntax change
 
 ## Verification

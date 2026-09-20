@@ -34,5 +34,6 @@ printf '%s\n' \
     "io.artifacthub.package.keywords=$IMAGE_KEYWORDS" \
     "io.artifacthub.package.license=$IMAGE_LICENSE" \
     "io.artifacthub.package.logo-url=$IMAGE_LOGO_URL" \
+    'io.artifacthub.package.maintainers=[{"name":"Eric Rocha","email":"eric.rocha@ericrocha.dev"}]' \
     "io.artifacthub.package.prerelease=false" \
     "containers.bootc=1" >"$LABELS_FILE"

@@ -1,0 +1,5 @@
+docker:
+  ghcr.io/ericrocha97/bluefin-cosmic-dx:
+    use-sigstore-attachments: true
+  ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia:
+    use-sigstore-attachments: true

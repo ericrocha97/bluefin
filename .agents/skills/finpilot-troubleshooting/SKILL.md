@@ -54,7 +54,7 @@ prerequisite for a documentation or script-syntax fix.
 
 | Symptom | Cause | Solution |
 | --- | --- | --- |
-| Image build fails: "permission denied" | Build context file ownership or modes, or a missing permission in the build environment | Check ownership/modes under `build/` and `custom/`; signing is disabled here, so this is not a signing-key problem |
+| Image build fails: "permission denied" | Build context file ownership or modes, or a missing permission in the build environment | Check ownership/modes under `build/` and `custom/`; the image build does not use the Cosign key, so this is not a signing-key problem |
 | Image build fails: "package not found" | Typo, or package unavailable in the configured repos | Check spelling, verify on RPMfusion, add a COPR only through `copr_install_isolated` (see `finpilot-packages`) |
 | Image build fails: "base image not found" / "manifest unknown" | Invalid `ARG BASE_IMAGE` tag or digest | Verify the default in `Containerfile` and the `--build-arg` in `ci/jenkins/Jenkinsfile.*`; let Renovate manage digests |
 | `bootc container lint --fatal-warnings` fails | Leftover artifacts, invalid image structure, or an unclean `/var`, `/run`, `/tmp`, `/boot` | `build/clean-stage.sh` runs last and must clean these; keep the lint step fatal and inspect its exact warning |
@@ -82,7 +82,8 @@ and Jenkins for production build/publish. There is no `pr-validation.yml` or
 | `validate-jenkins-tests.yml` fails | A `ci/jenkins/tests/` shell test broke | Run `bash ci/jenkins/tests/run-all.sh` |
 | Jenkins fails at lint | A strict `bootc container lint --fatal-warnings` warning | Fix the artifact or image-structure warning; warnings are build failures |
 | Jenkins build succeeds but the image is not published | Publish/release stages are gated on the default branch | Confirm `EFFECTIVE_BRANCH == DEFAULT_BRANCH` (`main`) and that registry credentials are present |
-| A check reports "signed" or expects a signature | Signing is disabled in this scope | Do not add signing steps; treat cosign verification as out of scope |
+| Jenkins fails at `Sign Image` | Missing/misconfigured `cosign_key` (`Secret file`) or `cosign_pass` (`Secret text`), or the push did not capture a valid digest | Check `docs/jenkins/README.md` §4.3, confirm the credentials and that the push on `main` wrote `ci/jenkins/build/image_digest` |
+| `cosign verify` reports no signature or an unexpected key | The digest was not signed yet, the run was not on `main`, or `cosign.pub` does not match the Jenkins private key | Verify the digest published on `main`; confirm `cosign_key`/`cosign_pass` are configured and that the versioned `cosign.pub` matches the private key |
 
 ## Runtime Issues
 
@@ -133,7 +134,7 @@ and Jenkins for production build/publish. There is no `pr-validation.yml` or
 | "I can skip shellcheck because CI will catch it." | `just lint` takes seconds and keeps the PR queue clean; it is a hard gate in `validate-shellcheck.yml`. |
 | "The COPR is disabled, so the repo file cannot be the problem." | Repo files can persist in `/etc/yum.repos.d/` even after the COPR metadata is gone. Inspect the directory. |
 | "I'll validate the Brewfile with `brew bundle check`." | That evaluates PR-controlled Ruby. Use the fail-closed `build/validate-brewfiles.sh` instead. |
-| "The documentation says images are signed." | Signing is disabled in this scope; that claim would be false. |
+| "The documentation says images are signed, but `cosign verify` fails." | Jenkins signs published digests; a failure usually means the wrong digest/tag, a non-`main` run, or a `cosign.pub` that does not match the `cosign_key` credential. |
 
 ## Red Flags
 
@@ -145,7 +146,7 @@ and Jenkins for production build/publish. There is no `pr-validation.yml` or
 - Validating a Brewfile with `brew bundle check` instead of the safe validator
 - Adding a workflow or route that assumes `pr-validation.yml` or
   `projectbluefin/actions`
-- Documenting images as signed while cosign signing is disabled
+- Documenting signing as a GitHub Actions step, by tag only, or conflating it with attestations/SBOM/provenance/rechunking
 
 ## Verification
 

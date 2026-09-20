@@ -2,8 +2,9 @@
 name: finpilot-templates
 description: >-
   Template identity rules for bluefin-cosmic-dx: the local rename locations,
-  image identity ARGs, image-info.json, and AGENTS.md update rules. Cosign
-  signing is out of scope. Use when renaming a fork or updating identity docs.
+  image identity ARGs, image-info.json, and AGENTS.md update rules. Jenkins
+  signs published digests with Cosign. Use when renaming a fork or updating
+  identity docs.
 ---
 
 # bluefin-cosmic-dx Templates & Fork Setup
@@ -27,7 +28,7 @@ description: >-
 
 1. **Rename every identity location** listed below
 2. **Check the image identity ARGs** match the new name
-3. **Confirm the signing state** — cosign stays out of scope
+3. **Confirm the signing state** — Jenkins signs published digests with Cosign
 4. **Update `AGENTS.md`** per the rules below
 5. **Verify** against the checklist at the end of this skill
 
@@ -77,17 +78,21 @@ The script appends `-nvidia` to the image name when `BASE_IMAGE` contains
 literal name. Do not re-introduce the upstream `FEDORA_MAJOR_VERSION` flow: this
 repository follows the base image through `BASE_IMAGE` and Renovate.
 
-## Signing (Out of Scope)
+## Signing (Jenkins Cosign)
 
-Cosign signing is **not enabled by default** in this repository. Enabling it is
-out of scope for this work; do not document local builds or releases as signed.
+Cosign signing (traditional key) is enabled in the **Jenkins** production
+pipelines. Each pipeline signs the published digest
+(`IMAGE_REPOSITORY@sha256:<digest>`) in a `Sign Image` stage gated on `main`,
+using the Jenkins credentials `cosign_key` (`Secret file`) and `cosign_pass`
+(`Secret text`) through `ci/jenkins/scripts/sign_image.sh`. `cosign.pub` is
+versioned for verification (`cosign verify --key cosign.pub <image>@<digest>`).
 
-- `build.yml` keeps signing steps for possible future reuse, but it triggers on
-  pull requests only, so it never publishes or signs an image.
-- Jenkins publishes unsigned images.
+- `build.yml` triggers on pull requests only, so it never publishes or signs.
 - Never commit `cosign.key`; only `cosign.pub` may be committed.
-- If signing is enabled later, treat it as a separate, explicit change and
-  update this skill, `finpilot-maintain`, and `finpilot-onboarding` together.
+- Attestations, SBOM, provenance and rechunking are separate concerns and stay
+  out of scope; do not conflate them with the Cosign signature.
+- Keep `finpilot-onboarding`, `finpilot-maintain`, `finpilot-ci`, and this skill
+  in sync when the signing setup changes.
 
 ## AGENTS.md Update Rules
 
@@ -95,10 +100,10 @@ out of scope for this work; do not document local builds or releases as signed.
 
 - **Use semantic references** (`ARG IMAGE_NAME`, `FROM`, `build/10-build.sh`)
   instead of fragile line numbers where possible
-- **Add a skills entry point only as a future update.** `AGENTS.md` does not
-  currently reference `.agents/skills/`; if you add one, point it at
-  `.agents/skills/README.md` and the `finpilot-router` skill. Do not assume an
-  existing entry point to keep in sync
+- **Keep the skills entry point in sync.** `AGENTS.md` references
+  `.agents/skills/` in its `## Agent Skills` section, which points at
+  `.agents/skills/README.md` and the `finpilot-router` skill. Update those
+  references when a skill is added, renamed or removed
 - **Update the `Last Updated` date** on every substantive change
 - **Do not add resolved items** (PR numbers, "done" notes) — those belong in git
   history
@@ -111,14 +116,14 @@ out of scope for this work; do not document local builds or releases as signed.
 | "I only need to rename the obvious places." | Missing `clean.yml`, the ISO bootc URL, or the Justfile silently publishes or prunes the wrong package. Check every location. |
 | "The upstream seven-location table is authoritative." | It is not. This fork has its own files (`README.pt-BR.md`, `iso/iso-nvidia.toml`). Use the local table. |
 | "I'll update `AGENTS.md` later once the build works." | It drives agent behaviour on every subsequent session. Update it in the same change. |
-| "I should add keyless signing like upstream." | Cosign is out of scope here. Document the real, unsigned state instead. |
+| "I should add keyless signing like upstream." | This repo uses a traditional Cosign key inside Jenkins, not upstream keyless/OIDC. Document the real Jenkins flow instead. |
 
 ## Red Flags
 
 - A fork still uses `bluefin-cosmic-dx` in `clean.yml` (cleanup targets the wrong package)
 - A `cosign.pub` placeholder file or a committed `cosign.key`
 - `AGENTS.md` referencing line numbers instead of semantic identifiers
-- Documentation claiming images are signed while cosign signing is disabled
+- Documentation attributing signing to GitHub Actions or a tag instead of the Jenkins digest signature
 - A rename that skips `iso/iso.toml`, `iso/iso-nvidia.toml`, or `README.pt-BR.md`
 - The identity ARGs and `image-info.json` disagree with the bootc switch URL
 
@@ -127,5 +132,5 @@ out of scope for this work; do not document local builds or releases as signed.
 - [ ] Were all local identity locations updated?
 - [ ] Do `IMAGE_NAME` / `IMAGE_VENDOR` ARGs match the fork?
 - [ ] Does `build/00-image-info.sh` still derive the name from variables?
-- [ ] Is the signing state documented as disabled (no false "signed" claims)?
+- [ ] Is the signing state documented accurately (Jenkins Cosign by digest, `cosign.pub` for verification)?
 - [ ] Does `AGENTS.md` use semantic references and a current `Last Updated` date?

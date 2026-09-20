@@ -58,10 +58,11 @@ matches the directory.
 - **GitHub Actions = PR and light validation only.** The workflows under
   `.github/workflows/` (`build.yml` image build as a PR check, `unit-tests.yml`,
   `validate-*.yml`, `renovate.yml`, `clean.yml`) never publish images.
-- **Jenkins = production build and publication.** `ci/jenkins/Jenkinsfile.stable`
-  (standard) and `ci/jenkins/Jenkinsfile.nvidia` (NVIDIA) build with Docker,
-  push to GHCR, create GitHub releases and notify n8n. Both are gated on
-  `main`; full setup is in `docs/jenkins/README.md`.
+- **Jenkins = production build, publication and signing.**
+  `ci/jenkins/Jenkinsfile.stable` (standard) and
+  `ci/jenkins/Jenkinsfile.nvidia` (NVIDIA) build with Docker, push to GHCR,
+  sign the published digest with Cosign, create GitHub releases and notify n8n.
+  Both are gated on `main`; full setup is in `docs/jenkins/README.md`.
 - **Base image = Bluefin DX via `ARG BASE_IMAGE`.** `Containerfile` defaults to
   `ghcr.io/ublue-os/bluefin-dx:stable`. The NVIDIA variant is the *same*
   Containerfile built with
@@ -69,10 +70,13 @@ matches the directory.
   there is no separate NVIDIA activation script.
 - **Renovate** runs from `.github/workflows/renovate.yml` every 6 hours using
   the built-in `secrets.GITHUB_TOKEN` (there is no `RENOVATE_TOKEN`).
-- **Cosign signing is out of scope.** Images published by Jenkins are unsigned;
-  `build.yml` keeps signing steps only for possible future reuse and triggers on
-  pull requests only, so it never publishes. Never document images or releases
-  as signed.
+- **Cosign signing happens in Jenkins.** Both pipelines sign the published
+  digest (`IMAGE_REPOSITORY@sha256:<digest>`) with a traditional Cosign key in a
+  `Sign Image` stage gated on `main`, using the Jenkins credentials `cosign_key`
+  (`Secret file`) and `cosign_pass` (`Secret text`). `cosign.pub` is versioned
+  for `cosign verify`. `build.yml` triggers on pull requests only, so it never
+  publishes or signs. Attestations, SBOM, provenance and rechunking stay out of
+  scope.
 - **Light validation, no required local build.** Run `shellcheck`/`just lint`,
   `just check`, `bats tests/unit`, YAML parsing, the Jenkins shell tests and
   `git diff --check` locally. The image build and
@@ -139,10 +143,13 @@ Confirm `.github/copilot-instructions.md` exists in the new repository. This fil
 
 ### 4. Confirm the signing state
 
-Cosign signing is **out of scope** for this repository. Do not claim images are
-signed and do not add signing steps. `build.yml` keeps signing steps only for
-possible future reuse, and it triggers on pull requests only, so it never
-publishes. Jenkins publishes unsigned images.
+Cosign signing is handled by the **Jenkins** production pipelines. Keep the
+documentation accurate: Jenkins signs the published digest with a traditional
+key, while GitHub Actions triggers on pull requests only and never publishes or
+signs. The private key lives in the Jenkins `cosign_key` credential (`Secret
+file`) with its password in `cosign_pass` (`Secret text`); `cosign.pub` is
+versioned for verification. Attestations, SBOM, provenance and rechunking stay
+out of scope.
 
 **These 4 steps are REQUIRED for every new template instance.**
 
@@ -753,19 +760,25 @@ cp /ctx/oci/brew/*.sh /usr/local/bin/
 
 **Reference:** See [Bluefin Contributing Guide](https://docs.projectbluefin.io/contributing/) for architecture diagram
 
-### 10. Image Signing (Out of Scope)
+### 10. Image Signing (Jenkins Cosign)
 
-Cosign signing is **out of scope** for this repository. Images published by
-Jenkins are unsigned, and `build.yml` triggers on pull requests only, so it never
-publishes or signs. The signing steps in `build.yml` exist only for possible
-future reuse.
+Cosign signing is enabled in the **Jenkins** production pipelines. After
+`Push GHCR`, each pipeline captures the published digest and signs
+`IMAGE_REPOSITORY@sha256:<digest>` in a `Sign Image` stage gated on `main`.
+`build.yml` triggers on pull requests only, so it never publishes or signs.
 
-- Do **not** document images or releases as signed.
-- Do **not** add signing steps to the Jenkins pipelines.
+- **Credentials**: `cosign_key` (Jenkins `Secret file`) and `cosign_pass`
+  (Jenkins `Secret text`); the IDs are read by `ci/jenkins/Jenkinsfile.stable`
+  and `ci/jenkins/Jenkinsfile.nvidia`. The helper is
+  `ci/jenkins/scripts/sign_image.sh`.
+- **Public key**: `cosign.pub` is versioned and used for verification:
+  `cosign verify --key cosign.pub <image>@<digest>`.
+- **Sign by digest, never by tag alone.**
+- **Out of scope**: attestations, SBOM, provenance and rechunking are separate
+  concerns; do not conflate them with the Cosign signature.
 - **NEVER commit `cosign.key`**; it is already in `.gitignore`. Only `cosign.pub`
   may be committed.
-- If signing is enabled later, treat it as a separate, explicit change and
-  update this file and the `finpilot-ci`/`finpilot-templates` skills together.
+- Do **not** move signing or publishing to GitHub Actions.
 
 ---
 
@@ -791,7 +804,7 @@ future reuse.
 14. **ALWAYS** read the live numbered scripts before creating a new pattern; there are no `.example` files in `build/`
 15. **ALWAYS** validate that new Flatpak IDs exist on Flathub before adding
 16. **NEVER** modify validation workflows without understanding impact on PR checks
-17. **NEVER** document images or releases as signed; cosign signing is out of scope
+17. **ALWAYS** document Cosign signing accurately: Jenkins signs the published digest by digest; GitHub Actions never publishes nor signs releases
 18. **NEVER** make a full local image build a prerequisite for a documentation or script-syntax change - use the light checks
 
 ---
@@ -1051,12 +1064,12 @@ See `build/copr-helpers.sh` for reusable patterns:
 - Uses GitHub runners
 - Runs on pull requests to `main` (PR check only)
 - Includes light validation (shellcheck, BATS, Brewfile, Flatpak, justfiles, Renovate, Jenkins tests)
-- Keeps signing steps only for possible future reuse, but never publishes in PR-check mode
+- Never publishes or signs in PR-check mode (signing and publication are Jenkins-only)
 
 **Production builds** (Jenkins):
 
 - Uses self-hosted Jenkins pipelines (`ci/jenkins/Jenkinsfile.stable` and `ci/jenkins/Jenkinsfile.nvidia`)
-- Handles the official build, GHCR publish (unsigned), GitHub release, and n8n notification
+- Handles the official build, GHCR publish, Cosign signing by digest, GitHub release, and n8n notification
 
 ### Image Layers and Caching
 
@@ -1086,7 +1099,9 @@ See `build/copr-helpers.sh` for reusable patterns:
 The NVIDIA pipeline publishes the same tag scheme to
 `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia`, with release tag
 `v<date>-nvidia`. PR-check builds (`build.yml`) are never pushed to the registry,
-so there are no published `pr-*` or `sha-*` tags.
+so there are no published `pr-*` or `sha-*` tags. Both Jenkins pipelines sign the
+published digest; verify with
+`cosign verify --key cosign.pub <image>@<digest>`.
 
 ---
 

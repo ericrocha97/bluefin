@@ -40,8 +40,8 @@ This repository is a downstream custom image. It does **not** use the upstream
 
 | Surface | Role | Files |
 | --- | --- | --- |
-| GitHub Actions | PR checks and light validation; never publishes images | `.github/workflows/build.yml`, `unit-tests.yml`, `validate-*.yml`, `renovate.yml`, `clean.yml` |
-| Jenkins | Production build, GHCR publish, GitHub release, n8n notification | `ci/jenkins/Jenkinsfile.stable`, `ci/jenkins/Jenkinsfile.nvidia` |
+| GitHub Actions | PR checks and light validation; never publishes or signs images | `.github/workflows/build.yml`, `unit-tests.yml`, `validate-*.yml`, `renovate.yml`, `clean.yml` |
+| Jenkins | Production build, GHCR publish, Cosign signing by digest, GitHub release, n8n notification | `ci/jenkins/Jenkinsfile.stable`, `ci/jenkins/Jenkinsfile.nvidia` |
 
 ## Workflow Map
 
@@ -64,19 +64,23 @@ workflows that reference them.
 
 ## Jenkins Pipelines
 
-Both pipelines build with `docker`, publish to GHCR, create a GitHub release,
-and notify n8n from the `post` block.
+Both pipelines build with `docker`, publish to GHCR, sign the published digest
+with Cosign, create a GitHub release, and notify n8n from the `post` block.
 
 | File | Schedule | Image | Notes |
 | --- | --- | --- | --- |
 | `ci/jenkins/Jenkinsfile.stable` | `H 2 * * 0` | `ghcr.io/ericrocha97/bluefin-cosmic-dx` | Default `BASE_IMAGE` (Bluefin DX) |
 | `ci/jenkins/Jenkinsfile.nvidia` | `H 10 * * *` | `ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia` | Adds `--build-arg BASE_IMAGE=ghcr.io/ublue-os/bluefin-dx-nvidia-open:stable-daily`, release tag `v<date>-nvidia` |
 
-- Both run on `DEFAULT_BRANCH = 'main'`; publish/release stages are gated on
+- Both run on `DEFAULT_BRANCH = 'main'`; publish/sign/release stages are gated on
   `EFFECTIVE_BRANCH == DEFAULT_BRANCH`.
 - Build context and metadata helpers live in `ci/jenkins/scripts/`
   (`generate_metadata.sh`, `extract_versions.sh`, `create_github_release.sh`,
-  `notify_n8n.sh`). Shell tests live in `ci/jenkins/tests/`.
+  `sign_image.sh`, `notify_n8n.sh`). Shell tests live in `ci/jenkins/tests/`.
+- The `Sign Image` stage reads the Jenkins credentials `cosign_key`
+  (`Secret file`) and `cosign_pass` (`Secret text`) and calls
+  `ci/jenkins/scripts/sign_image.sh` with `IMAGE_REPOSITORY@sha256:<digest>`;
+  tags alone are never signed.
 - Jenkins runs `bootc container lint --fatal-warnings` as part of the image
   build via the Containerfile; treat lint warnings as build failures.
 - Full setup (credentials, plugins, n8n, PostgreSQL) is in
@@ -117,10 +121,16 @@ tracked automatically; do not hand-edit a digest that Renovate manages.
 
 ## Signing
 
-Cosign signing is **disabled** in this scope. `build.yml` keeps signing steps
-for future reuse, but the workflow triggers on pull requests only, so it never
-publishes or signs an image. Jenkins publishes unsigned images. Do not document
-images or releases as signed, and do not add signing steps to Jenkins.
+Cosign signing (traditional key) is enabled in the **Jenkins** production
+pipelines. After `Push GHCR`, each pipeline captures the published digest and
+signs `IMAGE_REPOSITORY@sha256:<digest>` in a `Sign Image` stage gated on
+`main`, using the Jenkins credentials `cosign_key` (`Secret file`) and
+`cosign_pass` (`Secret text`) through `ci/jenkins/scripts/sign_image.sh`.
+`cosign.pub` is versioned for independent verification
+(`cosign verify --key cosign.pub <image>@<digest>`). `build.yml` triggers on
+pull requests only, so it never publishes or signs. Attestations, SBOM,
+provenance and rechunking are separate concerns and stay out of scope. Do not
+move signing or publishing to GitHub Actions.
 
 ## Common Rationalizations
 
@@ -130,7 +140,7 @@ images or releases as signed, and do not add signing steps to Jenkins.
 | "Minor/patch automerge is fine." | This image ships to users' machines; keep automerge scoped to digest/pin. |
 | "Every repository uses `projectbluefin/actions`." | This one does not. GitHub Actions is PR checks only; Jenkins publishes. |
 | "`build.yml` publishes the image." | It triggers on `pull_request` to `main` only and does not push. Jenkins is production. |
-| "I'll document the release as signed." | Signing is disabled here; that claim would be false. |
+| "I'll document the release as signed." | Accurate: Jenkins signs the published digest. Phrase it as Jenkins Cosign signing by digest, never as GitHub Actions or a tag signature. |
 | "The upstream promotion workflow handles releases." | There is no promotion workflow; Jenkins builds from `main`. |
 
 ## Red Flags
@@ -141,7 +151,8 @@ images or releases as signed, and do not add signing steps to Jenkins.
 - Installing a tool via `/releases/latest/` without a version pin
 - Widening Renovate automerge to `minor`/`patch` for all packages
 - Using `GITHUB_TOKEN` for a different repository (it cannot open PRs there)
-- Documenting signed images while signing is disabled
+- Claiming GitHub Actions signs or publishes releases, or documenting a tag
+  signature instead of the digest signature
 - Editing `ci/jenkins/Jenkinsfile.*` without running
   `bash ci/jenkins/tests/run-all.sh`
 
@@ -153,5 +164,5 @@ images or releases as signed, and do not add signing steps to Jenkins.
 - [ ] Does `renovate-config-validator --strict` pass when the config changes?
 - [ ] Does `bash ci/jenkins/tests/run-all.sh` pass when `ci/jenkins/` changes?
 - [ ] Were the changed YAML files parsed successfully with a YAML parser?
-- [ ] Does the change avoid claiming that images are signed?
+- [ ] Does the change describe Jenkins Cosign signing accurately (by digest, `cosign_key`/`cosign_pass`, `cosign.pub`) and keep GitHub Actions non-publishing?
 - [ ] Does the light validation avoid a local image build?
