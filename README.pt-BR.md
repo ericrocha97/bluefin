@@ -81,7 +81,7 @@ Aqui estão as mudanças em relação ao Bluefin DX. Esta imagem é baseada no B
 - COSMIC é a única sessão de desktop apresentada no login.
 - Comandos customizados do ujust disponíveis: install-nvm, install-sdkman, install-dev-managers, install-default-apps.
 
-*Última atualização: 2026-09-16*
+*Última atualização: 2026-09-20*
 
 ## O que é esta imagem
 
