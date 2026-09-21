@@ -184,9 +184,12 @@ fi
 assert_no_cosign_call "missing password was rejected"
 
 # The private key is never versioned: only the injected COSIGN_KEY_FILE path is
-# consumed and cosign.key is gitignored.
-if [[ -e "$REPO_ROOT/cosign.key" ]]; then
-    fail "the private cosign.key must not exist in the repository"
+# consumed and cosign.key is gitignored. Check Git tracking rather than the
+# filesystem, so a maintainer's local, ignored cosign.key (created by
+# `cosign generate-key-pair`) does not fail the suite.
+tracked_private_key="$(git -C "$REPO_ROOT" ls-files -- cosign.key 2>/dev/null || true)"
+if [[ -n "$tracked_private_key" ]]; then
+    fail "cosign.key must not be tracked by Git"
 fi
 assert_file_contains "$REPO_ROOT/.gitignore" "cosign.key"
 assert_file_not_contains "$SCRIPT_PATH" "cosign.key"
