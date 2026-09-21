@@ -228,15 +228,26 @@ publishes or signs a release.
   gated on the `main` branch. Tags alone are never signed. The helper is
   `ci/jenkins/scripts/sign_image.sh`; the same flow covers the standard
   (`bluefin-cosmic-dx`) and NVIDIA (`bluefin-cosmic-dx-nvidia`) variants.
+- **Legacy signature format for bootc**: Cosign 3.x signs with
+  `--new-bundle-format=false --use-signing-config=false`. This stores the
+  signature as an OCI attachment (`<digest>.sig`), the format consumed by the
+  `sigstoreSigned` policy plus `use-sigstore-attachments: true` in
+  `containers/image` (used by `bootc`, `rpm-ostree` and `skopeo`). The Cosign
+  3.x default bundle/referrers format is **not** found by that policy and makes
+  `bootc switch --enforce-container-sigpolicy` fail with `A signature was
+  required, but no signature exists`.
+- **Verification after signing**: right after signing, Jenkins runs
+  `cosign verify --new-bundle-format=false --key cosign.pub` on the same digest.
+  If verification fails, the pipeline aborts and never promotes `stable`.
 - **Public key**: `cosign.pub` is versioned in this repository. The private
   `cosign.key` is never committed (it is listed in `.gitignore`).
 - **Verification**: verify a published digest against the versioned public key (a
   tag such as `:stable` also works because it resolves to the signed digest):
 
   ```bash
-  cosign verify --key cosign.pub \
+  cosign verify --new-bundle-format=false --key cosign.pub \
     ghcr.io/ericrocha97/bluefin-cosmic-dx@sha256:<digest>
-  cosign verify --key cosign.pub \
+  cosign verify --new-bundle-format=false --key cosign.pub \
     ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia@sha256:<digest>
   ```
 
@@ -268,6 +279,11 @@ currently running system before switching.
 The policy intentionally blocks unrelated unsigned `podman`/container pulls.
 This is the expected trade-off of strict enforcement; add trusted registries to
 the policy locally if your workflow requires them.
+
+Enforcement depends on the signature being stored in the legacy Cosign
+attachment format. If a published image was signed with the Cosign 3.x default
+bundle format, the switch fails with `A signature was required, but no signature
+exists`; see the signing section above for the required flags.
 
 - **Out of scope**: attestations, SBOM, provenance, and rechunking are **not**
   part of this flow. Do not conflate them with the Cosign signature.
