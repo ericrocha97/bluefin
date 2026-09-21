@@ -224,6 +224,17 @@ requests e nunca publica nem assina um release.
   `Sign Image` condicionado à branch `main`. Tags sozinhas nunca são assinadas.
   O helper é `ci/jenkins/scripts/sign_image.sh`; o mesmo fluxo cobre as
   variantes padrão (`bluefin-cosmic-dx`) e NVIDIA (`bluefin-cosmic-dx-nvidia`).
+- **Formato legado para o bootc**: o Cosign 3.x assina com
+  `--new-bundle-format=false --use-signing-config=false`. Isso grava a assinatura
+  como attachment OCI (`<digest>.sig`), o formato consumido pela policy
+  `sigstoreSigned` com `use-sigstore-attachments: true` no `containers/image`
+  (usado por `bootc`, `rpm-ostree` e `skopeo`). O formato padrão bundle/referrers
+  do Cosign 3.x **não** é encontrado por essa policy e faz o
+  `bootc switch --enforce-container-sigpolicy` falhar com `A signature was
+  required, but no signature exists`.
+- **Verificação após assinar**: logo depois de assinar, o Jenkins roda
+  `cosign verify --new-bundle-format=false --key cosign.pub` no mesmo digest. Se
+  a verificação falhar, o pipeline aborta e nunca promove a tag `stable`.
 - **Chave pública**: `cosign.pub` é versionado neste repositório. A chave privada
   `cosign.key` nunca é commitada (está listada no `.gitignore`).
 - **Verificação**: verifique um digest publicado contra a chave pública
@@ -231,9 +242,9 @@ requests e nunca publica nem assina um release.
   assinado):
 
   ```bash
-  cosign verify --key cosign.pub \
+  cosign verify --new-bundle-format=false --key cosign.pub \
     ghcr.io/ericrocha97/bluefin-cosmic-dx@sha256:<digest>
-  cosign verify --key cosign.pub \
+  cosign verify --new-bundle-format=false --key cosign.pub \
     ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia@sha256:<digest>
   ```
 
@@ -266,6 +277,11 @@ switch.
 A política bloqueia intencionalmente pulls de containers não assinados em outros
 registros via `podman`. Esse é o trade-off esperado do enforcement estrito;
 adicione registros confiáveis localmente se seu fluxo precisar deles.
+
+O enforcement depende de a assinatura estar no formato legado de attachment do
+Cosign. Se uma imagem publicada foi assinada com o formato padrão de bundle do
+Cosign 3.x, o switch falha com `A signature was required, but no signature
+exists`; veja a seção de assinatura acima para as flags necessárias.
 
 - **Fora do escopo**: attestations, SBOM, provenance e rechunking **não** fazem
   parte deste fluxo. Não os confunda com a assinatura Cosign.

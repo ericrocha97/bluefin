@@ -15,8 +15,8 @@ Os pipelines definidos em `ci/jenkins/Jenkinsfile.stable` e `ci/jenkins/Jenkinsf
 
 - `Build Image`: build da imagem e geração de `manifest.txt` + metadados.
 - `Push GHCR`: autentica no GHCR, publica as tags datadas e registra o digest publicado.
-- `Sign Image`: assina o digest publicado com Cosign. Só roda quando `EFFECTIVE_BRANCH == DEFAULT_BRANCH` (`main`).
-- `Promote Stable`: atualiza a tag `stable` somente depois que a assinatura do digest foi concluída.
+- `Sign Image`: assina o digest publicado com Cosign e verifica a assinatura logo em seguida. Só roda quando `EFFECTIVE_BRANCH == DEFAULT_BRANCH` (`main`).
+- `Promote Stable`: atualiza a tag `stable` somente depois que a assinatura do digest foi criada e verificada com sucesso.
 - `Create GitHub Release`: cria/atualiza release e anexa `manifest.txt`.
 - `post { always }`: arquiva `ci/jenkins/build/*` e envia o payload para n8n usando `ci/jenkins/scripts/notify_n8n.sh`. Como o hook é `always`, a notificação acontece mesmo quando o pipeline falha; o status enviado é derivado de `currentBuild.currentResult` (`success`/`failure`).
 
@@ -24,7 +24,9 @@ Contexto atual de CI/CD:
 
 - O Jenkins é o pipeline oficial para build, publicação e assinatura.
 - A assinatura usa chave tradicional Cosign e é feita por digest (`IMAGE_REPOSITORY@sha256:<digest>`), nunca apenas pela tag.
-- A chave pública `cosign.pub` é versionada e permite verificação independente com `cosign verify --key cosign.pub`.
+- O Cosign 3.x assina com `--new-bundle-format=false` (e `--use-signing-config=false`). Esse formato legado grava a assinatura como attachment OCI (`<digest>.sig`), que é o único que a policy `sigstoreSigned` do `containers/image` (`bootc`/`rpm-ostree`/`skopeo`) consome com `use-sigstore-attachments: true`. O formato padrão do Cosign 3.x (bundle/referrers) não é encontrado por essa policy e resulta em `A signature was required, but no signature exists`.
+- Imediatamente após assinar, o Jenkins roda `cosign verify --new-bundle-format=false --key cosign.pub` no mesmo digest. Se a verificação falhar, o pipeline aborta antes de promover a tag `stable`.
+- A chave pública `cosign.pub` é versionada e permite verificação independente com `cosign verify --new-bundle-format=false --key cosign.pub`.
 - Attestations, SBOM, provenance e rechunking permanecem **fora do escopo**: não fazem parte do fluxo de assinatura.
 - O GitHub Actions em `.github/workflows/build.yml` roda apenas como check de PR (`pull_request` para `main`) e não publica imagem/release nem assina releases.
 
@@ -58,6 +60,12 @@ oras version
 A versão do Cosign é gerenciada pelo agente Jenkins e não é fixada neste
 repositório; registre a saída de `cosign version` no agente que executa os
 pipelines. Não é necessário instalar Cosign no repositório.
+
+O agente precisa do **Cosign 3.x**: `ci/jenkins/scripts/sign_image.sh` passa
+`--new-bundle-format=false` e `--use-signing-config=false`, flags que existem a
+partir do Cosign 3.x (são ocultas/deprecadas na CLI, mas funcionais em 3.1.x).
+Sem elas, o Cosign 3.x usa por padrão o formato de bundle/referrers, que a
+policy do `bootc` não reconhece.
 
 ## 3) Plugins Jenkins recomendados
 
@@ -280,6 +288,33 @@ Você também pode executar manualmente com `Build Now`.
 - Se `cosign verify` falhar depois do build, confirme que o `cosign.pub`
   versionado corresponde à chave privada carregada em `cosign_key`.
 
+### `bootc switch --enforce-container-sigpolicy` retorna `A signature was required, but no signature exists`
+
+- Causa: a assinatura foi gravada no formato de bundle/referrers padrão do
+  Cosign 3.x (`ghcr.io/...:<repo>` com a tag `sha256-<64hex>` sem sufixo), que a
+  policy `sigstoreSigned` + `use-sigstore-attachments: true` do
+  `containers/image` **não** lê. A policy procura o attachment legado
+  `sha256-<64hex>.sig`.
+- Verifique as tags de assinatura publicadas:
+
+  ```bash
+  skopeo list-tags docker://ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia \
+    | grep '<64hex-do-digest>'
+  ```
+
+  O correto é existir `sha256-<64hex>.sig`; se existir apenas
+  `sha256-<64hex>` (sem `.sig`), o build foi assinado no formato antigo.
+- Correção: garanta que `ci/jenkins/scripts/sign_image.sh` assine com
+  `--new-bundle-format=false --use-signing-config=false` e rode um novo build
+  Jenkins na `main`. A `policy.json` e o `use-sigstore-attachments: true` **não**
+  devem ser alterados.
+- Verificação manual do digest novo:
+
+  ```bash
+  cosign verify --new-bundle-format=false --key cosign.pub \
+    ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia@sha256:<novo_digest>
+  ```
+
 ### Erro no notify para n8n
 
 - Mensagem comum: `WEBHOOK_URL is required` ou `N8N_WEBHOOK_SHARED_TOKEN is required`
@@ -320,11 +355,14 @@ shellcheck ci/jenkins/scripts/*.sh ci/jenkins/tests/*.sh
 just --list
 ```
 
-Verificação de assinatura de um digest publicado (requer `cosign` e o
+Verificação de assinatura de um digest publicado (requer `cosign` 3.x e o
 `cosign.pub` versionado; uma tag como `:stable` também funciona, pois resolve
-para o digest assinado):
+para o digest assinado). Use `--new-bundle-format=false` para ler a assinatura
+no formato legado usado pela policy do `bootc`:
 
 ```bash
-cosign verify --key cosign.pub ghcr.io/ericrocha97/bluefin-cosmic-dx@sha256:<digest>
-cosign verify --key cosign.pub ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia@sha256:<digest>
+cosign verify --new-bundle-format=false --key cosign.pub \
+  ghcr.io/ericrocha97/bluefin-cosmic-dx@sha256:<digest>
+cosign verify --new-bundle-format=false --key cosign.pub \
+  ghcr.io/ericrocha97/bluefin-cosmic-dx-nvidia@sha256:<digest>
 ```

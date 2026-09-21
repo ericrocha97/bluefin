@@ -73,10 +73,15 @@ matches the directory.
 - **Cosign signing happens in Jenkins.** Both pipelines sign the published
   digest (`IMAGE_REPOSITORY@sha256:<digest>`) with a traditional Cosign key in a
   `Sign Image` stage gated on `main`, using the Jenkins credentials `cosign_key`
-  (`Secret file`) and `cosign_pass` (`Secret text`). `cosign.pub` is versioned
-  for `cosign verify`. `build.yml` triggers on pull requests only, so it never
-  publishes or signs. Attestations, SBOM, provenance and rechunking stay out of
-  scope.
+  (`Secret file`) and `cosign_pass` (`Secret text`). Cosign 3.x is invoked with
+  `--new-bundle-format=false --use-signing-config=false` so the legacy OCI
+  signature attachment (`<digest>.sig`) is produced, the only format the
+  `sigstoreSigned` + `use-sigstore-attachments: true` policy of
+  `containers/image` (bootc/rpm-ostree/skopeo) can verify. Jenkins then runs
+  `cosign verify --new-bundle-format=false --key cosign.pub <image>@<digest>`
+  immediately after signing. `cosign.pub` is versioned for `cosign verify`.
+  `build.yml` triggers on pull requests only, so it never publishes or signs.
+  Attestations, SBOM, provenance and rechunking stay out of scope.
 - **Light validation, no required local build.** Run `shellcheck`/`just lint`,
   `just check`, `bats tests/unit`, YAML parsing, the Jenkins shell tests and
   `git diff --check` locally. The image build and
@@ -764,16 +769,30 @@ cp /ctx/oci/brew/*.sh /usr/local/bin/
 
 Cosign signing is enabled in the **Jenkins** production pipelines. After
 `Push GHCR`, each pipeline captures the published digest and signs
-`IMAGE_REPOSITORY@sha256:<digest>` in a `Sign Image` stage gated on `main`.
+`IMAGE_REPOSITORY@sha256:<digest>` in a `Sign Image` stage gated on `main`, then
+verifies the signature before promoting `stable`.
 `build.yml` triggers on pull requests only, so it never publishes or signs.
 
 - **Credentials**: `cosign_key` (Jenkins `Secret file`) and `cosign_pass`
   (Jenkins `Secret text`); the IDs are read by `ci/jenkins/Jenkinsfile.stable`
   and `ci/jenkins/Jenkinsfile.nvidia`. The helper is
   `ci/jenkins/scripts/sign_image.sh`.
+- **Legacy format required**: Cosign 3.x signs with
+  `--new-bundle-format=false --use-signing-config=false`. This produces the
+  legacy OCI attachment (`<digest>.sig`) that the `sigstoreSigned` +
+  `use-sigstore-attachments: true` policy of `containers/image` consumes. The
+  Cosign 3.x default bundle/referrers format makes
+  `bootc switch --enforce-container-sigpolicy` fail with
+  `A signature was required, but no signature exists`.
+- **Verify after signing**: the helper runs
+  `cosign verify --new-bundle-format=false --key cosign.pub <image>@<digest>`
+  immediately after `cosign sign`; a failure aborts the pipeline via
+  `set -euo pipefail` before `stable` is promoted.
 - **Public key**: `cosign.pub` is versioned and used for verification:
-  `cosign verify --key cosign.pub <image>@<digest>`.
+  `cosign verify --new-bundle-format=false --key cosign.pub <image>@<digest>`.
 - **Sign by digest, never by tag alone.**
+- **Do not weaken the policy**: never replace `sigstoreSigned` with
+  `insecureAcceptAnything`, and never remove `use-sigstore-attachments: true`.
 - **Out of scope**: attestations, SBOM, provenance and rechunking are separate
   concerns; do not conflate them with the Cosign signature.
 - **NEVER commit `cosign.key`**; it is already in `.gitignore`. Only `cosign.pub`
@@ -804,7 +823,7 @@ Cosign signing is enabled in the **Jenkins** production pipelines. After
 14. **ALWAYS** read the live numbered scripts before creating a new pattern; there are no `.example` files in `build/`
 15. **ALWAYS** validate that new Flatpak IDs exist on Flathub before adding
 16. **NEVER** modify validation workflows without understanding impact on PR checks
-17. **ALWAYS** document Cosign signing accurately: Jenkins signs the published digest by digest; GitHub Actions never publishes nor signs releases
+17. **ALWAYS** document Cosign signing accurately: Jenkins signs the published digest by digest with Cosign 3.x `--new-bundle-format=false` (legacy attachment for bootc/containers-image), verifies it immediately, and promotes `stable` only after verification; GitHub Actions never publishes nor signs releases
 18. **NEVER** make a full local image build a prerequisite for a documentation or script-syntax change - use the light checks
 
 ---
